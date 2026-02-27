@@ -1,0 +1,12 @@
+# 无 Nacos 时使用固定地址转发（需先启动 house-hold-auth-user，端口 8081）
+spring:
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+    gateway:
+      routes:
+        - id: auth-user
+          uri: http://localhost:8081
+          predicates:
+            - Path=/auth/**
