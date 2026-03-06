@@ -5,7 +5,7 @@ import com.household.authuser.dto.request.RegisterRequest;
 import com.household.authuser.dto.response.LoginResponse;
 import com.household.authuser.dto.response.RegisterResponse;
 import com.household.authuser.entity.User;
-import com.household.authuser.mapper.UserMapper;
+import com.household.authuser.repository.UserRepository;
 import com.household.authuser.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -15,34 +15,41 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * 认证服务，处理用户注册与登录
+ *
+ * @author household
+ * @date 2025/01/01
+ */
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final UserMapper userMapper;
+    private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
-    // 简单自增 ID（本迭代单机可用，后续可换雪花算法）
     private static final AtomicLong ID_GEN = new AtomicLong(1_000_000_000_000L);
 
     @Transactional(rollbackFor = Exception.class)
     public RegisterResponse register(RegisterRequest req) {
-        if (userMapper.selectByUsername(req.getUsername()) != null) {
+        if (userRepository.findByUsername(req.getUsername()).isPresent()) {
             throw new UsernameExistsException("用户名已被使用");
         }
         LocalDate birthday = LocalDate.parse(req.getBirthday());
         User user = new User();
-        user.setId(ID_GEN.incrementAndGet()); // 单机唯一，后续可改为雪花算法
+        user.setId(ID_GEN.incrementAndGet());
         user.setUsername(req.getUsername());
         user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
+        user.setName(req.getName());
         user.setBirthday(birthday);
         user.setEmail(req.getEmail());
         user.setPhone(req.getPhone());
-        userMapper.insert(user);
+        userRepository.save(user);
         return new RegisterResponse(
                 String.valueOf(user.getId()),
                 user.getUsername(),
+                user.getName(),
                 user.getBirthday().toString(),
                 user.getEmail(),
                 user.getPhone()
@@ -50,15 +57,16 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest req) {
-        User user = userMapper.selectByUsername(req.getUsername());
+        User user = userRepository.findByUsername(req.getUsername()).orElse(null);
         if (user == null || !passwordEncoder.matches(req.getPassword(), user.getPasswordHash())) {
             throw new InvalidCredentialsException("用户名或密码错误");
         }
-        String token = jwtUtil.generateToken(user.getId(), user.getUsername());
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getFamilyId());
         LoginResponse.UserInfo info = new LoginResponse.UserInfo(
                 String.valueOf(user.getId()),
                 user.getUsername(),
-                user.getBirthday() != null ? user.getBirthday().toString() : null
+                user.getBirthday() != null ? user.getBirthday().toString() : null,
+                user.getFamilyId() != null ? String.valueOf(user.getFamilyId()) : null
         );
         return new LoginResponse(token, info);
     }

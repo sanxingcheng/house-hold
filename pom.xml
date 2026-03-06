@@ -21,6 +21,7 @@
     <modules>
         <module>house-hold-gateway</module>
         <module>house-hold-auth-user</module>
+        <module>house-hold-wealth</module>
     </modules>
 
     <properties>

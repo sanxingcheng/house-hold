@@ -29,6 +29,30 @@ const router = createRouter({
       component: () => import('@/views/Dashboard.vue'),
       meta: { requiresAuth: true },
     },
+    {
+      path: '/profile',
+      name: 'Profile',
+      component: () => import('@/views/Profile.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/family',
+      name: 'Family',
+      component: () => import('@/views/Family.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/wealth/accounts',
+      name: 'WealthAccounts',
+      component: () => import('@/views/WealthAccounts.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/wealth/history',
+      name: 'WealthHistory',
+      component: () => import('@/views/WealthHistory.vue'),
+      meta: { requiresAuth: true },
+    },
   ],
 })
 

@@ -11,6 +11,7 @@ export interface UserInfo {
   id: string
   username: string
   birthday?: string
+  familyId?: string | null
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -60,11 +61,21 @@ export const useAuthStore = defineStore('auth', () => {
     return data
   }
 
+  function setFamilyId(familyId: string | null) {
+    if (user.value) {
+      user.value = { ...user.value, familyId }
+      try {
+        localStorage.setItem(USER_KEY, JSON.stringify(user.value))
+      } catch (_) {}
+    }
+  }
+
   return {
     token,
     user,
     isLoggedIn,
     setAuth,
+    setFamilyId,
     loadFromStorage,
     logout,
     login,

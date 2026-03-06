@@ -1,0 +1,54 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: house-hold-wealth
+  config:
+    import: optional:nacos:${spring.application.name}.yaml
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/household?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: root
+    password: Admin@123
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: false
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        namespace: public
+      config:
+        server-addr: localhost:8848
+        namespace: public
+        file-extension: yaml
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+
+cache:
+  enabled: true
+  local:
+    max-size: 1000
+    ttl-seconds: 60
+  ttl:
+    redis-account-seconds: 300
+    redis-summary-seconds: 60
+    redis-snapshot-seconds: 600
+    redis-random-max: 60
+    null-placeholder-seconds: 120
+  key-prefix: "household:wealth:"

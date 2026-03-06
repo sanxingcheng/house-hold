@@ -2,6 +2,13 @@
   <div class="main-layout">
     <header class="header">
       <span class="logo">家庭资产</span>
+      <nav class="nav">
+        <router-link to="/dashboard">概览</router-link>
+        <router-link to="/profile">个人信息</router-link>
+        <router-link to="/family">家庭</router-link>
+        <router-link to="/wealth/accounts">账户管理</router-link>
+        <router-link to="/wealth/history">资产趋势</router-link>
+      </nav>
       <span class="user">{{ user?.username }}</span>
       <button type="button" class="btn-logout" @click="handleLogout">退出</button>
     </header>
@@ -45,6 +52,21 @@ function handleLogout() {
   font-size: 1.25rem;
   font-weight: 600;
   color: #333;
+}
+.nav {
+  display: flex;
+  gap: 1rem;
+  margin-left: 1.5rem;
+}
+.nav a {
+  color: #555;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+.nav a:hover,
+.nav a.router-link-active {
+  color: #333;
+  font-weight: 500;
 }
 .user {
   margin-left: auto;

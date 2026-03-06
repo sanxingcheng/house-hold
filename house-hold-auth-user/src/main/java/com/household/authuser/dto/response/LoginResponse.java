@@ -18,5 +18,6 @@ public class LoginResponse {
         private String id;
         private String username;
         private String birthday;
+        private String familyId; // null if not in a family
     }
 }

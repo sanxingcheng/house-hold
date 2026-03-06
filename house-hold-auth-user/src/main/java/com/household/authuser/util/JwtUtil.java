@@ -10,6 +10,12 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
+/**
+ * JWT 工具类，提供令牌生成与解析功能
+ *
+ * @author household
+ * @date 2025/01/01
+ */
 @Component
 public class JwtUtil {
 
@@ -25,15 +31,21 @@ public class JwtUtil {
     }
 
     public String generateToken(Long userId, String username) {
+        return generateToken(userId, username, null);
+    }
+
+    public String generateToken(Long userId, String username, Long familyId) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + config.getExpirationMs());
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(String.valueOf(userId))
                 .claim("username", username)
                 .issuedAt(now)
-                .expiration(expiry)
-                .signWith(secretKey())
-                .compact();
+                .expiration(expiry);
+        if (familyId != null) {
+            builder.claim("familyId", String.valueOf(familyId));
+        }
+        return builder.signWith(secretKey()).compact();
     }
 
     public Claims parseToken(String token) {

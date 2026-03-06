@@ -50,9 +50,10 @@ class AuthControllerTest {
         void whenValidRequest_thenReturns200AndBody() throws Exception {
             RegisterRequest req = new RegisterRequest();
             req.setUsername("user1");
+            req.setName("测试");
             req.setPassword("pass123");
             req.setBirthday("1990-01-01");
-            RegisterResponse res = new RegisterResponse("1", "user1", "1990-01-01", null, null);
+            RegisterResponse res = new RegisterResponse("1", "user1", "测试", "1990-01-01", null, null);
             when(authService.register(any(RegisterRequest.class))).thenReturn(res);
 
             mockMvc.perform(post("/auth/register")
@@ -75,7 +76,7 @@ class AuthControllerTest {
             LoginRequest req = new LoginRequest();
             req.setUsername("u1");
             req.setPassword("pass");
-            LoginResponse.UserInfo userInfo = new LoginResponse.UserInfo("1", "u1", "1990-01-01");
+            LoginResponse.UserInfo userInfo = new LoginResponse.UserInfo("1", "u1", "1990-01-01", null);
             LoginResponse res = new LoginResponse("jwt-token", userInfo);
             when(authService.login(any(LoginRequest.class))).thenReturn(res);
 

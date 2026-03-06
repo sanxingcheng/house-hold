@@ -33,3 +33,4 @@ house-hold-web/dist
 
 # Maven
 target/
+/house-hold-auth-user/target/classes/

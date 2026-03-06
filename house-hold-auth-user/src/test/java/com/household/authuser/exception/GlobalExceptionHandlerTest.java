@@ -1,6 +1,7 @@
 package com.household.authuser.exception;
 
 import com.household.authuser.service.AuthService;
+import com.household.authuser.service.FamilyService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,54 @@ class GlobalExceptionHandlerTest {
         assertThat(res.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         assertThat(res.getBody()).containsEntry("code", "INVALID_CREDENTIALS")
                 .containsEntry("message", "用户名或密码错误");
+    }
+
+    @Test
+    @DisplayName("NotFoundException 返回 404 和 NOT_FOUND")
+    void handleNotFound_returns404AndCode() {
+        FamilyService.NotFoundException e = new FamilyService.NotFoundException("家庭不存在");
+
+        ResponseEntity<Map<String, String>> res = handler.handleNotFound(e);
+
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(res.getBody()).containsEntry("code", "NOT_FOUND")
+                .containsEntry("message", "家庭不存在");
+    }
+
+    @Test
+    @DisplayName("AlreadyInFamilyException 返回 400 和 BAD_REQUEST")
+    void handleAlreadyInFamily_returns400AndCode() {
+        FamilyService.AlreadyInFamilyException e = new FamilyService.AlreadyInFamilyException("您已属于一个家庭");
+
+        ResponseEntity<Map<String, String>> res = handler.handleBadRequest(e);
+
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(res.getBody()).containsEntry("code", "BAD_REQUEST")
+                .containsEntry("message", "您已属于一个家庭");
+    }
+
+    @Test
+    @DisplayName("BadRequestException 返回 400 和 BAD_REQUEST")
+    void handleBadRequest_returns400AndCode() {
+        FamilyService.BadRequestException e = new FamilyService.BadRequestException("家庭ID不能为空");
+
+        ResponseEntity<Map<String, String>> res = handler.handleBadRequest(e);
+
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(res.getBody()).containsEntry("code", "BAD_REQUEST")
+                .containsEntry("message", "家庭ID不能为空");
+    }
+
+    @Test
+    @DisplayName("ForbiddenException 返回 403 和 FORBIDDEN")
+    void handleForbidden_returns403AndCode() {
+        FamilyService.ForbiddenException e = new FamilyService.ForbiddenException("您不属于该家庭");
+
+        ResponseEntity<Map<String, String>> res = handler.handleForbidden(e);
+
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(res.getBody()).containsEntry("code", "FORBIDDEN")
+                .containsEntry("message", "您不属于该家庭");
     }
 
     @Test

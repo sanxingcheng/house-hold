@@ -1,6 +1,10 @@
 server:
   port: 8080
 
+app:
+  jwt:
+    secret: house-hold-jwt-secret-key-change-in-production-min-256-bits
+
 spring:
   application:
     name: house-hold-gateway
@@ -21,10 +25,22 @@ spring:
           enabled: true
           lower-case-service-id: true
       routes:
-        - id: auth-user
+        - id: auth-user-auth
           uri: lb://house-hold-auth-user
           predicates:
             - Path=/auth/**
+        - id: auth-user-user
+          uri: lb://house-hold-auth-user
+          predicates:
+            - Path=/user/**
+        - id: auth-user-family
+          uri: lb://house-hold-auth-user
+          predicates:
+            - Path=/family/**
+        - id: wealth
+          uri: lb://house-hold-wealth
+          predicates:
+            - Path=/wealth/**
       globalcors:
         cors-configurations:
           '[/**]':
