@@ -21,7 +21,6 @@ import java.time.LocalDate;
 @Service
 @RequiredArgsConstructor
 public class UserService {
-
     private final UserRepository userRepository;
     @Autowired(required = false)
     private UserCacheService userCacheService;

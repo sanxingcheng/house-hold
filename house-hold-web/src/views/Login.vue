@@ -1,65 +1,72 @@
 <template>
   <GuestLayout>
-    <div class="card">
-      <h1 class="title">登录</h1>
-      <form class="form" @submit.prevent="onSubmit">
-        <div v-if="error" class="error">{{ error }}</div>
-        <div class="field">
-          <label>用户名</label>
-          <input v-model="username" type="text" required placeholder="请输入用户名" />
-        </div>
-        <div class="field">
-          <label>密码</label>
-          <input v-model="password" type="password" required placeholder="请输入密码" />
-        </div>
-        <div class="field row">
-          <input id="remember" v-model="remember" type="checkbox" />
-          <label for="remember">记住我</label>
-        </div>
-        <button type="submit" class="btn" :disabled="loading">登录</button>
-      </form>
-      <p class="link">
-        还没有账号？<router-link to="/register">去注册</router-link>
-      </p>
+    <h2 style="text-align:center;margin:0 0 24px;font-size:1.4rem;color:#303133">登录</h2>
+    <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon style="margin-bottom:16px" />
+    <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent="onSubmit">
+      <el-form-item label="用户名" prop="username">
+        <el-input v-model="form.username" placeholder="请输入用户名" :prefix-icon="User" />
+      </el-form-item>
+      <el-form-item label="密码" prop="password">
+        <el-input v-model="form.password" type="password" show-password placeholder="请输入密码" :prefix-icon="Lock" />
+      </el-form-item>
+      <el-form-item>
+        <el-checkbox v-model="form.remember">记住我</el-checkbox>
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" native-type="submit" :loading="loading" style="width:100%">登录</el-button>
+      </el-form-item>
+    </el-form>
+    <div style="text-align:center;font-size:0.9rem;color:#909399">
+      还没有账号？<router-link to="/register" style="color:var(--el-color-primary)">去注册</router-link>
     </div>
   </GuestLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import type { FormInstance, FormRules } from 'element-plus'
+import { User, Lock } from '@element-plus/icons-vue'
 import GuestLayout from '@/layouts/GuestLayout.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
 const router = useRouter()
-
-const username = ref('')
-const password = ref('')
-const remember = ref(false)
+const formRef = ref<FormInstance>()
 const loading = ref(false)
 const error = ref('')
 
 const REMEMBER_KEY = 'household_remember_username'
 
+const form = reactive({
+  username: '',
+  password: '',
+  remember: false,
+})
+
+const rules: FormRules = {
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+}
+
 onMounted(() => {
   try {
     const saved = localStorage.getItem(REMEMBER_KEY)
-    if (saved) username.value = saved
+    if (saved) form.username = saved
   } catch (_) {}
 })
 
 async function onSubmit() {
+  if (!formRef.value) return
+  const valid = await formRef.value.validate().catch(() => false)
+  if (!valid) return
+
   error.value = ''
-  if (!username.value.trim() || !password.value) {
-    error.value = '请填写用户名和密码'
-    return
-  }
   loading.value = true
   try {
-    await authStore.login(username.value.trim(), password.value)
-    if (remember.value) {
-      try { localStorage.setItem(REMEMBER_KEY, username.value.trim()) } catch (_) {}
+    await authStore.login(form.username.trim(), form.password)
+    if (form.remember) {
+      try { localStorage.setItem(REMEMBER_KEY, form.username.trim()) } catch (_) {}
     } else {
       try { localStorage.removeItem(REMEMBER_KEY) } catch (_) {}
     }
@@ -73,68 +80,3 @@ async function onSubmit() {
   }
 }
 </script>
-
-<style scoped>
-.card {
-  width: 100%;
-  max-width: 360px;
-  padding: 2rem;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-.title {
-  margin: 0 0 1.5rem;
-  font-size: 1.5rem;
-  text-align: center;
-}
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-.error {
-  padding: 0.5rem;
-  background: #fee;
-  color: #c00;
-  border-radius: 4px;
-  font-size: 0.875rem;
-}
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-.field label { font-size: 0.875rem; color: #555; }
-.field.row {
-  flex-direction: row;
-  align-items: center;
-}
-.field.row label { margin-left: 0.5rem; }
-.field input[type="text"],
-.field input[type="password"] {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-}
-.btn {
-  margin-top: 0.5rem;
-  padding: 0.6rem 1rem;
-  background: #198754;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  cursor: pointer;
-}
-.btn:hover:not(:disabled) { background: #157347; }
-.btn:disabled { opacity: 0.7; cursor: not-allowed; }
-.link {
-  margin: 1.5rem 0 0;
-  text-align: center;
-  font-size: 0.875rem;
-  color: #666;
-}
-.link a { color: #0d6efd; }
-</style>

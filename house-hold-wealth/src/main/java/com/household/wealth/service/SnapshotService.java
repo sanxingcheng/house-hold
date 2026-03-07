@@ -10,9 +10,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.household.common.util.SnowflakeIdGenerator;
+
 import java.time.LocalDate;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 快照服务，管理财富快照的生成与历史查询
@@ -30,7 +31,7 @@ public class SnapshotService {
     @Autowired(required = false)
     private SummaryCacheService summaryCacheService;
 
-    private static final AtomicLong SNAPSHOT_ID_GEN = new AtomicLong(5_000_000_000_000L);
+    private static final SnowflakeIdGenerator SNAPSHOT_ID_GEN = new SnowflakeIdGenerator(2, 2);
     private static final String CREDIT_CARD = "CREDIT_CARD";
     private static final String OWNER_TYPE_USER = "USER";
     private static final String OWNER_TYPE_FAMILY = "FAMILY";
@@ -49,7 +50,7 @@ public class SnapshotService {
         long netWorth = totalAssets - totalLiabilities;
 
         snapshotRepository.upsertSnapshot(
-                SNAPSHOT_ID_GEN.incrementAndGet(), OWNER_TYPE_USER, userId,
+                SNAPSHOT_ID_GEN.nextId(), OWNER_TYPE_USER, userId,
                 totalAssets, totalLiabilities, netWorth, today);
 
         if (summaryCacheService != null) {
@@ -67,7 +68,7 @@ public class SnapshotService {
             long famNetWorth = famAssets - famLiabilities;
 
             snapshotRepository.upsertSnapshot(
-                    SNAPSHOT_ID_GEN.incrementAndGet(), OWNER_TYPE_FAMILY, familyId,
+                    SNAPSHOT_ID_GEN.nextId(), OWNER_TYPE_FAMILY, familyId,
                     famAssets, famLiabilities, famNetWorth, today);
 
             if (summaryCacheService != null) {

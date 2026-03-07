@@ -1,22 +1,27 @@
 package com.household.wealth.config;
 
+import com.household.common.config.BaseCacheProperties;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 @Data
+@EqualsAndHashCode(callSuper = true)
 @Configuration
 @ConfigurationProperties(prefix = "cache")
-public class CacheProperties {
-    private boolean enabled = true;
-    private Local local = new Local();
-    private Ttl ttl = new Ttl();
-    private String keyPrefix = "household:wealth:";
+public class CacheProperties extends BaseCacheProperties {
 
-    @Data
-    public static class Local {
-        private int maxSize = 1000;
-        private int ttlSeconds = 60;
+    private Ttl ttl = new Ttl();
+
+    @Override
+    public int getRedisRandomMax() {
+        return ttl.getRedisRandomMax();
+    }
+
+    @Override
+    public int getNullPlaceholderSeconds() {
+        return ttl.getNullPlaceholderSeconds();
     }
 
     @Data

@@ -12,6 +12,8 @@ export interface FamilyMember {
   username: string
   name?: string
   role: string
+  isAdmin: boolean
+  isCreator: boolean
 }
 
 export interface FamilyCreateRequest {
@@ -39,5 +41,42 @@ export interface FamilyResponse {
   province: string
   city: string
   street: string
+  createdBy: string
   members: FamilyMember[]
+}
+
+export interface ApplyJoinRequest {
+  role?: string
+}
+
+export interface CreateMemberRequest {
+  username: string
+  password: string
+  name: string
+  birthday: string
+  email?: string
+  phone?: string
+  role?: string
+}
+
+export interface InviteUserRequest {
+  username: string
+  role?: string
+}
+
+export interface SetAdminRequest {
+  admin: boolean
+}
+
+export interface JoinRequestResponse {
+  id: string
+  familyId: string
+  familyName: string
+  userId: string
+  username: string
+  requestType: 'APPLY' | 'INVITE'
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  role: string
+  initiatedByUsername: string
+  createdAt: string
 }

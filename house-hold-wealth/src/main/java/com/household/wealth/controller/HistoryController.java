@@ -1,7 +1,7 @@
 package com.household.wealth.controller;
 
+import com.household.common.exception.BadRequestException;
 import com.household.wealth.dto.response.SnapshotPointResponse;
-import com.household.wealth.service.AccountService;
 import com.household.wealth.service.SnapshotService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -38,7 +38,7 @@ public class HistoryController {
             @RequestParam String from,
             @RequestParam String to) {
         if (familyId == null) {
-            throw new AccountService.NoFamilyException("尚未加入家庭");
+            throw new BadRequestException("尚未加入家庭");
         }
         return ResponseEntity.ok(
                 snapshotService.getFamilyHistory(familyId, LocalDate.parse(from), LocalDate.parse(to)));

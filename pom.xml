@@ -19,6 +19,7 @@
     <description>家庭资产与成员管理系统</description>
 
     <modules>
+        <module>house-hold-common</module>
         <module>house-hold-gateway</module>
         <module>house-hold-auth-user</module>
         <module>house-hold-wealth</module>
@@ -30,6 +31,8 @@
         <spring-cloud-alibaba.version>2023.0.1.2</spring-cloud-alibaba.version>
         <mybatis-spring-boot.version>3.0.3</mybatis-spring-boot.version>
         <jjwt.version>0.12.6</jjwt.version>
+        <redisson.version>3.42.0</redisson.version>
+        <shardingsphere.version>5.5.3</shardingsphere.version>
     </properties>
 
     <dependencyManagement>
@@ -69,6 +72,16 @@
                 <artifactId>jjwt-jackson</artifactId>
                 <version>${jjwt.version}</version>
                 <scope>runtime</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.redisson</groupId>
+                <artifactId>redisson-spring-boot-starter</artifactId>
+                <version>${redisson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.shardingsphere</groupId>
+                <artifactId>shardingsphere-jdbc</artifactId>
+                <version>${shardingsphere.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

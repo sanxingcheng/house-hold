@@ -16,6 +16,7 @@ public class FamilyResponse {
     private String province;
     private String city;
     private String street;
+    private String createdBy;
     private List<MemberInfo> members;
 
     @Data
@@ -26,5 +27,7 @@ public class FamilyResponse {
         private String username;
         private String name;
         private String role;
+        private boolean isAdmin;
+        private boolean isCreator;
     }
 }

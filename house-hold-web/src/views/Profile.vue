@@ -1,42 +1,46 @@
 <template>
   <MainLayout>
-    <div class="profile">
-      <h1>个人信息</h1>
-      <form v-if="!saving" @submit.prevent="onSubmit" class="form">
-        <div class="field">
-          <label>用户名</label>
-          <input type="text" :value="profile?.username" disabled class="readonly" />
-        </div>
-        <div class="field">
-          <label>姓名</label>
-          <input v-model="form.name" type="text" placeholder="选填" />
-        </div>
-        <div class="field">
-          <label>生日</label>
-          <input v-model="form.birthday" type="date" />
-        </div>
-        <div class="field">
-          <label>邮箱</label>
-          <input v-model="form.email" type="email" placeholder="选填" />
-        </div>
-        <div class="field">
-          <label>手机</label>
-          <input v-model="form.phone" type="tel" placeholder="选填" />
-        </div>
-        <div class="field" v-if="profile?.familyId">
-          <label>所属家庭</label>
-          <input type="text" :value="familyName" disabled class="readonly" />
-        </div>
-        <p v-if="message" class="message" :class="{ error: isError }">{{ message }}</p>
-        <button type="submit" class="btn">保存</button>
-      </form>
-      <p v-else class="hint">保存中…</p>
+    <div class="profile" v-loading="pageLoading">
+      <el-card shadow="never">
+        <template #header>
+          <div class="card-header">
+            <el-icon :size="20"><User /></el-icon>
+            <span>个人信息</span>
+          </div>
+        </template>
+
+        <el-form ref="formRef" :model="form" label-width="80px" label-position="left" style="max-width:480px">
+          <el-form-item label="用户名">
+            <el-input :model-value="profile?.username" disabled />
+          </el-form-item>
+          <el-form-item label="姓名">
+            <el-input v-model="form.name" placeholder="选填" />
+          </el-form-item>
+          <el-form-item label="生日">
+            <el-date-picker v-model="form.birthday" type="date" placeholder="选择日期" value-format="YYYY-MM-DD" style="width:100%" />
+          </el-form-item>
+          <el-form-item label="邮箱">
+            <el-input v-model="form.email" placeholder="选填" />
+          </el-form-item>
+          <el-form-item label="手机">
+            <el-input v-model="form.phone" placeholder="选填" />
+          </el-form-item>
+          <el-form-item v-if="profile?.familyId" label="所属家庭">
+            <el-input :model-value="familyName" disabled />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="saving" @click="onSubmit">保存</el-button>
+          </el-form-item>
+        </el-form>
+      </el-card>
     </div>
   </MainLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
+import { ElMessage } from 'element-plus'
+import { User } from '@element-plus/icons-vue'
 import MainLayout from '@/layouts/MainLayout.vue'
 import { getProfile, updateProfile } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
@@ -47,8 +51,7 @@ const authStore = useAuthStore()
 const familyStore = useFamilyStore()
 const profile = ref<UserProfile | null>(null)
 const saving = ref(false)
-const message = ref('')
-const isError = ref(false)
+const pageLoading = ref(false)
 
 const form = reactive<UserProfileUpdateRequest>({
   name: '',
@@ -60,6 +63,7 @@ const form = reactive<UserProfileUpdateRequest>({
 const familyName = computed(() => familyStore.family?.nameAlias ?? '—')
 
 async function load() {
+  pageLoading.value = true
   try {
     const { data } = await getProfile()
     profile.value = data
@@ -80,21 +84,20 @@ async function load() {
     if (profile.value) {
       form.birthday = profile.value.birthday ?? ''
     }
+  } finally {
+    pageLoading.value = false
   }
 }
 
 async function onSubmit() {
-  message.value = ''
-  isError.value = false
   saving.value = true
   try {
     const { data } = await updateProfile(form)
     profile.value = data
     authStore.setAuth(authStore.token!, { ...authStore.user!, ...data })
-    message.value = '保存成功'
+    ElMessage.success('保存成功')
   } catch (e: unknown) {
-    isError.value = true
-    message.value = (e as { message?: string })?.message ?? '保存失败'
+    ElMessage.error((e as { message?: string })?.message ?? '保存失败')
   } finally {
     saving.value = false
   }
@@ -104,15 +107,14 @@ onMounted(load)
 </script>
 
 <style scoped>
-.profile { max-width: 480px; margin: 0 auto; }
-.form { display: flex; flex-direction: column; gap: 1rem; }
-.field { display: flex; flex-direction: column; gap: 0.25rem; }
-.field label { font-weight: 500; color: #333; }
-.field input { padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; }
-.field input.readonly { background: #f5f5f5; color: #666; }
-.message { margin: 0.5rem 0; font-size: 0.9rem; }
-.message.error { color: #c00; }
-.btn { padding: 0.5rem 1rem; align-self: flex-start; cursor: pointer; border-radius: 4px; background: #333; color: #fff; border: none; }
-.btn:hover { background: #555; }
-.hint { color: #666; }
+.profile {
+  max-width: 640px;
+  margin: 0 auto;
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
 </style>

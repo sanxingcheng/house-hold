@@ -1,90 +1,135 @@
 <template>
-  <div class="main-layout">
-    <header class="header">
-      <span class="logo">家庭资产</span>
-      <nav class="nav">
-        <router-link to="/dashboard">概览</router-link>
-        <router-link to="/profile">个人信息</router-link>
-        <router-link to="/family">家庭</router-link>
-        <router-link to="/wealth/accounts">账户管理</router-link>
-        <router-link to="/wealth/history">资产趋势</router-link>
-      </nav>
-      <span class="user">{{ user?.username }}</span>
-      <button type="button" class="btn-logout" @click="handleLogout">退出</button>
-    </header>
-    <main class="main">
+  <el-container class="main-layout">
+    <el-header class="header">
+      <div class="header-left">
+        <el-icon :size="24" class="logo-icon"><HomeFilled /></el-icon>
+        <span class="logo-text">家庭资产</span>
+      </div>
+
+      <el-menu
+        :default-active="activeRoute"
+        mode="horizontal"
+        :ellipsis="false"
+        router
+        class="nav-menu"
+      >
+        <el-menu-item index="/dashboard">
+          <el-icon><DataLine /></el-icon>概览
+        </el-menu-item>
+        <el-menu-item index="/profile">
+          <el-icon><User /></el-icon>个人信息
+        </el-menu-item>
+        <el-sub-menu index="/family">
+          <template #title>
+            <el-icon><House /></el-icon>家庭
+          </template>
+          <el-menu-item index="/family">家庭管理</el-menu-item>
+          <el-menu-item index="/family/assets">共有资产</el-menu-item>
+        </el-sub-menu>
+        <el-sub-menu index="/wealth">
+          <template #title>
+            <el-icon><Wallet /></el-icon>财富
+          </template>
+          <el-menu-item index="/wealth/accounts">账户管理</el-menu-item>
+          <el-menu-item index="/wealth/history">资产趋势</el-menu-item>
+        </el-sub-menu>
+      </el-menu>
+
+      <div class="header-right">
+        <el-dropdown trigger="click" @command="handleCommand">
+          <span class="user-dropdown">
+            <el-avatar :size="32" :icon="UserFilled" />
+            <span class="username">{{ user?.username }}</span>
+            <el-icon><ArrowDown /></el-icon>
+          </span>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="logout">
+                <el-icon><SwitchButton /></el-icon>退出登录
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
+    </el-header>
+
+    <el-main class="main-content">
       <slot />
-    </main>
-  </div>
+    </el-main>
+  </el-container>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
-import { useRouter } from 'vue-router'
+import {
+  HomeFilled, DataLine, User, UserFilled,
+  House, Wallet, ArrowDown, SwitchButton
+} from '@element-plus/icons-vue'
 
 const authStore = useAuthStore()
 const { user } = storeToRefs(authStore)
-const router = useRouter()
+const route = useRoute()
 
-function handleLogout() {
-  authStore.logout()
-  router.push('/login')
+const activeRoute = computed(() => route.path)
+
+function handleCommand(command: string) {
+  if (command === 'logout') {
+    authStore.logout()
+  }
 }
 </script>
 
 <style scoped>
 .main-layout {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: #f5f5f5;
 }
 .header {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem 2rem;
   background: #fff;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  padding: 0 24px;
+  height: 60px;
+  z-index: 10;
 }
-.logo {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #333;
-}
-.nav {
+.header-left {
   display: flex;
-  gap: 1rem;
-  margin-left: 1.5rem;
+  align-items: center;
+  gap: 8px;
+  margin-right: 24px;
+  flex-shrink: 0;
 }
-.nav a {
-  color: #555;
-  text-decoration: none;
-  font-size: 0.9rem;
+.logo-icon {
+  color: var(--el-color-primary);
 }
-.nav a:hover,
-.nav a.router-link-active {
-  color: #333;
-  font-weight: 500;
+.logo-text {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #303133;
 }
-.user {
-  margin-left: auto;
-  color: #666;
-}
-.btn-logout {
-  padding: 0.35rem 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: #fff;
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-.btn-logout:hover {
-  background: #f5f5f5;
-}
-.main {
+.nav-menu {
   flex: 1;
-  padding: 2rem;
+  border-bottom: none !important;
+}
+.header-right {
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+.user-dropdown {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  outline: none;
+}
+.username {
+  font-size: 0.9rem;
+  color: #606266;
+}
+.main-content {
+  background: #f5f7fa;
 }
 </style>

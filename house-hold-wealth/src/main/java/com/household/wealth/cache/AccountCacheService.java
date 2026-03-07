@@ -7,17 +7,15 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.household.wealth.config.CacheProperties;
 import com.household.wealth.dto.response.AccountResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 @Slf4j
@@ -31,15 +29,14 @@ public class AccountCacheService {
     private final com.github.benmanes.caffeine.cache.Cache<String, Object> localCache;
     private final CacheProperties props;
     private final ObjectMapper objectMapper;
-    private final ConcurrentHashMap<String, Lock> loadLocks = new ConcurrentHashMap<>();
-    private final StringRedisTemplate redisTemplate;
+    private final RedissonClient redissonClient;
 
     public AccountCacheService(com.github.benmanes.caffeine.cache.Cache<String, Object> localCache,
                                CacheProperties props,
-                               Optional<StringRedisTemplate> redisTemplate) {
+                               Optional<RedissonClient> redissonClient) {
         this.localCache = localCache;
         this.props = props;
-        this.redisTemplate = redisTemplate.orElse(null);
+        this.redissonClient = redissonClient.orElse(null);
         this.objectMapper = new ObjectMapper();
         this.objectMapper.registerModule(new JavaTimeModule());
     }
@@ -54,8 +51,8 @@ public class AccountCacheService {
             return (List<AccountResponse>) cached;
         }
 
-        if (redisTemplate != null) {
-            String json = redisTemplate.opsForValue().get(fullKey);
+        if (redissonClient != null) {
+            String json = (String) redissonClient.getBucket(fullKey).get();
             if (json != null) {
                 if (NULL_PLACEHOLDER.equals(json)) {
                     localCache.put(fullKey, NULL_PLACEHOLDER);
@@ -71,8 +68,8 @@ public class AccountCacheService {
             }
         }
 
-        Lock lock = loadLocks.computeIfAbsent(fullKey, k -> new ReentrantLock());
-        lock.lock();
+        RLock lock = redissonClient != null ? redissonClient.getLock("lock:" + fullKey) : null;
+        if (lock != null) lock.lock();
         try {
             cached = localCache.getIfPresent(fullKey);
             if (cached != null) {
@@ -82,8 +79,8 @@ public class AccountCacheService {
 
             List<AccountResponse> res = loader.get();
             if (res == null || res.isEmpty()) {
-                if (redisTemplate != null) {
-                    redisTemplate.opsForValue().set(fullKey, NULL_PLACEHOLDER,
+                if (redissonClient != null) {
+                    redissonClient.getBucket(fullKey).set(NULL_PLACEHOLDER,
                             Duration.ofSeconds(props.getTtl().getNullPlaceholderSeconds()));
                 }
                 localCache.put(fullKey, NULL_PLACEHOLDER);
@@ -92,9 +89,9 @@ public class AccountCacheService {
 
             int ttl = props.getTtl().getRedisAccountSeconds()
                     + ThreadLocalRandom.current().nextInt(Math.max(1, props.getTtl().getRedisRandomMax()));
-            if (redisTemplate != null) {
+            if (redissonClient != null) {
                 try {
-                    redisTemplate.opsForValue().set(fullKey, objectMapper.writeValueAsString(res),
+                    redissonClient.getBucket(fullKey).set(objectMapper.writeValueAsString(res),
                             Duration.ofSeconds(ttl));
                 } catch (JsonProcessingException e) {
                     log.warn("Failed to serialize account cache for key {}: {}", fullKey, e.getMessage());
@@ -103,16 +100,15 @@ public class AccountCacheService {
             localCache.put(fullKey, res);
             return res;
         } finally {
-            lock.unlock();
-            loadLocks.remove(fullKey, lock);
+            if (lock != null && lock.isHeldByCurrentThread()) lock.unlock();
         }
     }
 
     public void invalidateUser(Long userId) {
         String fullKey = props.getKeyPrefix() + "accounts:user:" + userId;
         localCache.invalidate(fullKey);
-        if (redisTemplate != null) {
-            redisTemplate.delete(fullKey);
+        if (redissonClient != null) {
+            redissonClient.getBucket(fullKey).delete();
         }
     }
 
@@ -120,8 +116,8 @@ public class AccountCacheService {
         if (familyId == null) return;
         String fullKey = props.getKeyPrefix() + "accounts:family:" + familyId;
         localCache.invalidate(fullKey);
-        if (redisTemplate != null) {
-            redisTemplate.delete(fullKey);
+        if (redissonClient != null) {
+            redissonClient.getBucket(fullKey).delete();
         }
     }
 }

@@ -6,7 +6,7 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: (to) => {
+      redirect: () => {
         const auth = useAuthStore()
         return auth.isLoggedIn ? '/dashboard' : '/login'
       },
@@ -39,6 +39,12 @@ const router = createRouter({
       path: '/family',
       name: 'Family',
       component: () => import('@/views/Family.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/family/assets',
+      name: 'FamilyAssets',
+      component: () => import('@/views/FamilyAssets.vue'),
       meta: { requiresAuth: true },
     },
     {

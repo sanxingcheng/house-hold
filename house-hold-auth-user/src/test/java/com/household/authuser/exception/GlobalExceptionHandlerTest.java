@@ -1,7 +1,9 @@
 package com.household.authuser.exception;
 
 import com.household.authuser.service.AuthService;
-import com.household.authuser.service.FamilyService;
+import com.household.common.exception.BadRequestException;
+import com.household.common.exception.ForbiddenException;
+import com.household.common.exception.NotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -53,7 +55,7 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("NotFoundException 返回 404 和 NOT_FOUND")
     void handleNotFound_returns404AndCode() {
-        FamilyService.NotFoundException e = new FamilyService.NotFoundException("家庭不存在");
+        NotFoundException e = new NotFoundException("家庭不存在");
 
         ResponseEntity<Map<String, String>> res = handler.handleNotFound(e);
 
@@ -63,9 +65,9 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("AlreadyInFamilyException 返回 400 和 BAD_REQUEST")
+    @DisplayName("BadRequestException（已属于家庭）返回 400 和 BAD_REQUEST")
     void handleAlreadyInFamily_returns400AndCode() {
-        FamilyService.AlreadyInFamilyException e = new FamilyService.AlreadyInFamilyException("您已属于一个家庭");
+        BadRequestException e = new BadRequestException("您已属于一个家庭");
 
         ResponseEntity<Map<String, String>> res = handler.handleBadRequest(e);
 
@@ -77,7 +79,7 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("BadRequestException 返回 400 和 BAD_REQUEST")
     void handleBadRequest_returns400AndCode() {
-        FamilyService.BadRequestException e = new FamilyService.BadRequestException("家庭ID不能为空");
+        BadRequestException e = new BadRequestException("家庭ID不能为空");
 
         ResponseEntity<Map<String, String>> res = handler.handleBadRequest(e);
 
@@ -89,7 +91,7 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("ForbiddenException 返回 403 和 FORBIDDEN")
     void handleForbidden_returns403AndCode() {
-        FamilyService.ForbiddenException e = new FamilyService.ForbiddenException("您不属于该家庭");
+        ForbiddenException e = new ForbiddenException("您不属于该家庭");
 
         ResponseEntity<Map<String, String>> res = handler.handleForbidden(e);
 

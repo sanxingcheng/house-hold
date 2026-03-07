@@ -1,218 +1,236 @@
 <template>
   <MainLayout>
-    <div class="wealth-accounts">
+    <div class="wealth-accounts" v-loading="pageLoading">
       <div class="page-header">
-        <h1>账户管理</h1>
-        <div class="header-actions">
-          <span v-if="userSummary" class="net-worth">
-            净资产：<b :class="userSummary.netWorth >= 0 ? 'positive' : 'negative'">
-              ¥ {{ formatMoney(userSummary.netWorth) }}
-            </b>
+        <h1 style="margin:0">账户管理</h1>
+        <div style="display:flex;align-items:center;gap:16px">
+          <span v-if="userSummary" style="color:#909399">
+            净资产：<b :style="{ color: userSummary.netWorth >= 0 ? '#409eff' : '#f56c6c' }">¥ {{ formatMoney(userSummary.netWorth) }}</b>
           </span>
-          <button class="btn btn-primary" @click="openCreateDialog">新增账户</button>
+          <el-button type="primary" :icon="Plus" @click="openCreateDialog">新增账户</el-button>
         </div>
       </div>
 
-      <div v-if="accounts.length === 0" class="empty">
-        <p>暂无账户，点击「新增账户」开始管理你的资产吧</p>
-      </div>
-
-      <div v-else class="account-grid">
-        <div v-for="acc in accounts" :key="acc.id" class="account-card" :class="{ liability: acc.accountType === 'CREDIT_CARD' }">
-          <div class="card-header">
-            <span class="card-name">{{ acc.accountName }}</span>
-            <span class="card-type">{{ typeLabel(acc.accountType) }}</span>
-          </div>
-          <div class="card-balance" :class="acc.accountType === 'CREDIT_CARD' ? 'negative' : 'positive'">
-            ¥ {{ formatMoney(acc.balance) }}
-          </div>
-          <div class="card-footer">
-            <span class="currency">{{ acc.currency }}</span>
-            <div class="card-actions">
-              <button class="btn-sm" @click="openEditDialog(acc)">编辑</button>
-              <button class="btn-sm btn-danger" @click="confirmDelete(acc)">删除</button>
-            </div>
-          </div>
+      <!-- 管理员：选择查看成员 -->
+      <el-card v-if="familyStore.isAdmin && familyStore.members.length > 1" shadow="never" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="color:#606266;font-weight:500">查看成员账户：</span>
+          <el-select v-model="selectedMemberId" placeholder="选择成员" style="width:200px" @change="onMemberChange">
+            <el-option label="— 我的账户 —" value="" />
+            <el-option
+              v-for="m in otherMembers" :key="m.userId"
+              :label="`${m.username}${m.name ? ' (' + m.name + ')' : ''}`"
+              :value="m.userId"
+            />
+          </el-select>
+          <el-tag v-if="selectedMemberId" type="info" size="small">管理员代管模式</el-tag>
         </div>
-      </div>
+      </el-card>
 
-      <!-- 新增/编辑弹框 -->
-      <div v-if="showDialog" class="dialog-overlay" @click.self="closeDialog">
-        <div class="dialog">
-          <h2>{{ editing ? '编辑账户' : '新增账户' }}</h2>
-          <form @submit.prevent="handleSubmit">
-            <div class="form-group">
-              <label>账户名称 *</label>
-              <input v-model="form.accountName" required maxlength="64" placeholder="如：招商银行储蓄卡" />
-            </div>
-            <div class="form-group">
-              <label>账户类型 *</label>
-              <select v-model="form.accountType" required>
-                <option value="" disabled>请选择</option>
-                <option value="SAVING">储蓄卡</option>
-                <option value="CREDIT_CARD">信用卡</option>
-                <option value="STOCK">股票</option>
-                <option value="FUND">基金</option>
-                <option value="ALIPAY">支付宝</option>
-                <option value="WECHAT">微信</option>
-                <option value="OTHER">其他</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>{{ form.accountType === 'CREDIT_CARD' ? '当前账单金额' : '余额' }} *（元）</label>
-              <input v-model.number="formBalanceYuan" type="number" step="0.01" min="0" required placeholder="0.00" />
-            </div>
-            <div class="form-group">
-              <label>货币</label>
-              <input v-model="form.currency" placeholder="CNY" />
-            </div>
-            <div class="dialog-actions">
-              <button type="button" class="btn" @click="closeDialog">取消</button>
-              <button type="submit" class="btn btn-primary" :disabled="submitting">
-                {{ submitting ? '提交中...' : '确定' }}
-              </button>
-            </div>
-            <p v-if="errorMsg" class="error">{{ errorMsg }}</p>
-          </form>
-        </div>
-      </div>
+      <el-empty v-if="displayAccounts.length === 0 && !pageLoading" description="暂无账户，点击「新增账户」开始管理吧" />
 
-      <!-- 删除确认 -->
-      <div v-if="showDeleteConfirm" class="dialog-overlay" @click.self="showDeleteConfirm = false">
-        <div class="dialog dialog-sm">
-          <h2>确认删除</h2>
-          <p>确定要删除账户「{{ deletingAccount?.accountName }}」吗？此操作不可撤销。</p>
-          <div class="dialog-actions">
-            <button class="btn" @click="showDeleteConfirm = false">取消</button>
-            <button class="btn btn-danger" :disabled="submitting" @click="handleDelete">确定删除</button>
-          </div>
-        </div>
-      </div>
+      <el-table v-else :data="displayAccounts" stripe style="width:100%">
+        <el-table-column prop="accountName" label="账户名称" min-width="150" />
+        <el-table-column prop="accountType" label="类型" width="120">
+          <template #default="{ row }">
+            <el-tag :type="row.accountType === 'CREDIT_CARD' ? 'danger' : 'primary'" size="small">{{ typeLabel(row.accountType) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="余额" width="160" align="right">
+          <template #default="{ row }">
+            <span :style="{ color: row.accountType === 'CREDIT_CARD' ? '#f56c6c' : '#409eff', fontWeight: 600 }">
+              ¥ {{ formatMoney(row.balance) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="currency" label="货币" width="80" />
+        <el-table-column label="操作" width="160" align="center">
+          <template #default="{ row }">
+            <el-button size="small" link type="primary" @click="openEditDialog(row)">编辑</el-button>
+            <el-popconfirm :title="`确定删除「${row.accountName}」？`" confirm-button-text="删除" cancel-button-text="取消" @confirm="handleDelete(row)">
+              <template #reference>
+                <el-button size="small" link type="danger">删除</el-button>
+              </template>
+            </el-popconfirm>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- 新增/编辑对话框 -->
+      <el-dialog v-model="showDialog" :title="isEditing ? '编辑账户' : '新增账户'" width="460px" destroy-on-close>
+        <el-form ref="dialogFormRef" :model="form" :rules="formRules" label-width="100px">
+          <el-form-item label="账户名称" prop="accountName">
+            <el-input v-model="form.accountName" placeholder="如：招商银行储蓄卡" maxlength="64" />
+          </el-form-item>
+          <el-form-item label="账户类型" prop="accountType">
+            <el-select v-model="form.accountType" placeholder="请选择" style="width:100%">
+              <el-option label="储蓄卡" value="SAVING" />
+              <el-option label="信用卡" value="CREDIT_CARD" />
+              <el-option label="股票" value="STOCK" />
+              <el-option label="基金" value="FUND" />
+              <el-option label="支付宝" value="ALIPAY" />
+              <el-option label="微信" value="WECHAT" />
+              <el-option label="其他" value="OTHER" />
+            </el-select>
+          </el-form-item>
+          <el-form-item :label="form.accountType === 'CREDIT_CARD' ? '账单金额（元）' : '余额（元）'" prop="balanceYuan">
+            <el-input-number v-model="form.balanceYuan" :precision="2" :min="0" :step="100" controls-position="right" style="width:100%" />
+          </el-form-item>
+          <el-form-item label="货币">
+            <el-input v-model="form.currency" placeholder="CNY" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="showDialog = false">取消</el-button>
+          <el-button type="primary" :loading="submitting" @click="handleSubmit">确定</el-button>
+        </template>
+      </el-dialog>
     </div>
   </MainLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
+import type { FormInstance, FormRules } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
 import MainLayout from '@/layouts/MainLayout.vue'
+import { useAuthStore } from '@/stores/auth'
+import { useFamilyStore } from '@/stores/family'
 import { useWealthStore } from '@/stores/wealth'
 import type { Account, AccountType } from '@/types/wealth'
 
+const authStore = useAuthStore()
+const familyStore = useFamilyStore()
 const wealthStore = useWealthStore()
-const { accounts, userSummary } = storeToRefs(wealthStore)
+const { accounts, userSummary, memberAccounts } = storeToRefs(wealthStore)
 
+const pageLoading = ref(false)
 const showDialog = ref(false)
-const editing = ref(false)
+const isEditing = ref(false)
 const editingId = ref('')
 const submitting = ref(false)
-const errorMsg = ref('')
-const showDeleteConfirm = ref(false)
-const deletingAccount = ref<Account | null>(null)
+const dialogFormRef = ref<FormInstance>()
+const selectedMemberId = ref('')
 
-const form = ref({
+const form = reactive({
   accountName: '',
   accountType: '' as AccountType | '',
+  balanceYuan: 0,
   currency: 'CNY',
 })
-const formBalanceYuan = ref(0)
+
+const formRules: FormRules = {
+  accountName: [{ required: true, message: '请输入账户名称', trigger: 'blur' }],
+  accountType: [{ required: true, message: '请选择账户类型', trigger: 'change' }],
+  balanceYuan: [{ required: true, message: '请输入金额', trigger: 'blur' }],
+}
+
+const otherMembers = computed(() =>
+  familyStore.members.filter(m => m.userId !== authStore.user?.id)
+)
+
+const displayAccounts = computed(() =>
+  selectedMemberId.value ? memberAccounts.value : accounts.value
+)
 
 const TYPE_LABELS: Record<string, string> = {
-  SAVING: '储蓄卡',
-  CREDIT_CARD: '信用卡',
-  STOCK: '股票',
-  FUND: '基金',
-  ALIPAY: '支付宝',
-  WECHAT: '微信',
-  OTHER: '其他',
+  SAVING: '储蓄卡', CREDIT_CARD: '信用卡', STOCK: '股票', FUND: '基金',
+  ALIPAY: '支付宝', WECHAT: '微信', OTHER: '其他',
 }
-
-function typeLabel(type: string) {
-  return TYPE_LABELS[type] || type
-}
-
+function typeLabel(t: string) { return TYPE_LABELS[t] || t }
 function formatMoney(fen: number) {
   return (fen / 100).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 function openCreateDialog() {
-  editing.value = false
+  isEditing.value = false
   editingId.value = ''
-  form.value = { accountName: '', accountType: '', currency: 'CNY' }
-  formBalanceYuan.value = 0
-  errorMsg.value = ''
+  Object.assign(form, { accountName: '', accountType: '', balanceYuan: 0, currency: 'CNY' })
   showDialog.value = true
 }
 
 function openEditDialog(acc: Account) {
-  editing.value = true
+  isEditing.value = true
   editingId.value = acc.id
-  form.value = {
-    accountName: acc.accountName,
-    accountType: acc.accountType,
-    currency: acc.currency,
-  }
-  formBalanceYuan.value = acc.balance / 100
-  errorMsg.value = ''
+  Object.assign(form, { accountName: acc.accountName, accountType: acc.accountType, balanceYuan: acc.balance / 100, currency: acc.currency })
   showDialog.value = true
 }
 
-function closeDialog() {
-  showDialog.value = false
-}
-
-function confirmDelete(acc: Account) {
-  deletingAccount.value = acc
-  showDeleteConfirm.value = true
+async function onMemberChange(userId: string) {
+  if (userId) {
+    pageLoading.value = true
+    try { await wealthStore.fetchMemberAccounts(userId) } finally { pageLoading.value = false }
+  }
 }
 
 async function handleSubmit() {
-  if (!form.value.accountName || !form.value.accountType) return
+  if (!dialogFormRef.value) return
+  const valid = await dialogFormRef.value.validate().catch(() => false)
+  if (!valid) return
+
   submitting.value = true
-  errorMsg.value = ''
   try {
-    const balanceFen = Math.round(formBalanceYuan.value * 100)
-    if (editing.value) {
-      await wealthStore.editAccount(editingId.value, {
-        accountName: form.value.accountName,
-        accountType: form.value.accountType as AccountType,
-        balance: balanceFen,
-        currency: form.value.currency || 'CNY',
-      })
-    } else {
-      await wealthStore.addAccount({
-        accountName: form.value.accountName,
-        accountType: form.value.accountType as AccountType,
-        balance: balanceFen,
-        currency: form.value.currency || 'CNY',
-      })
+    const balanceFen = Math.round(form.balanceYuan * 100)
+    const payload = {
+      accountName: form.accountName,
+      accountType: form.accountType as AccountType,
+      balance: balanceFen,
+      currency: form.currency || 'CNY',
     }
-    closeDialog()
-    await wealthStore.fetchUserSummary()
-  } catch (e: any) {
-    errorMsg.value = e.message || '操作失败'
+
+    if (selectedMemberId.value) {
+      if (isEditing.value) {
+        await wealthStore.editMemberAccount(selectedMemberId.value, editingId.value, payload)
+        ElMessage.success('成员账户已更新')
+      } else {
+        await wealthStore.addMemberAccount(selectedMemberId.value, payload)
+        ElMessage.success('成员账户已创建')
+      }
+    } else {
+      if (isEditing.value) {
+        await wealthStore.editAccount(editingId.value, payload)
+        ElMessage.success('账户已更新')
+      } else {
+        await wealthStore.addAccount(payload)
+        ElMessage.success('账户已创建')
+      }
+      await wealthStore.fetchUserSummary()
+    }
+    showDialog.value = false
+  } catch (e: unknown) {
+    ElMessage.error((e as { message?: string })?.message ?? '操作失败')
   } finally {
     submitting.value = false
   }
 }
 
-async function handleDelete() {
-  if (!deletingAccount.value) return
-  submitting.value = true
+async function handleDelete(acc: Account) {
   try {
-    await wealthStore.removeAccount(deletingAccount.value.id)
-    showDeleteConfirm.value = false
-    deletingAccount.value = null
-    await wealthStore.fetchUserSummary()
-  } catch (e: any) {
-    errorMsg.value = e.message || '删除失败'
-  } finally {
-    submitting.value = false
+    if (selectedMemberId.value) {
+      await wealthStore.removeMemberAccount(selectedMemberId.value, acc.id)
+    } else {
+      await wealthStore.removeAccount(acc.id)
+      await wealthStore.fetchUserSummary()
+    }
+    ElMessage.success('账户已删除')
+  } catch (e: unknown) {
+    ElMessage.error((e as { message?: string })?.message ?? '删除失败')
   }
 }
 
 onMounted(async () => {
-  await Promise.all([wealthStore.fetchAccounts(), wealthStore.fetchUserSummary()])
+  pageLoading.value = true
+  try {
+    const promises: Promise<unknown>[] = [wealthStore.fetchAccounts(), wealthStore.fetchUserSummary()]
+    if (authStore.user?.familyId) {
+      promises.push(familyStore.fetchFamily(authStore.user.familyId))
+    }
+    await Promise.all(promises)
+  } finally {
+    pageLoading.value = false
+  }
 })
 </script>
 
@@ -225,179 +243,6 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
-}
-.page-header h1 {
-  font-size: 1.5rem;
-  color: #333;
-}
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-.net-worth {
-  font-size: 1rem;
-  color: #666;
-}
-.positive { color: #2563eb; }
-.negative { color: #dc2626; }
-.empty {
-  text-align: center;
-  padding: 3rem;
-  color: #999;
-  background: #fff;
-  border-radius: 8px;
-}
-.account-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1rem;
-}
-.account-card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 1.25rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-  border-left: 4px solid #2563eb;
-}
-.account-card.liability {
-  border-left-color: #dc2626;
-}
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-.card-name {
-  font-weight: 600;
-  color: #333;
-}
-.card-type {
-  font-size: 0.75rem;
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: #f0f0f0;
-  color: #666;
-}
-.card-balance {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin-bottom: 0.75rem;
-}
-.card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.currency {
-  font-size: 0.8rem;
-  color: #999;
-}
-.card-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-.btn {
-  padding: 0.5rem 1rem;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background: #fff;
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-.btn:hover { background: #f5f5f5; }
-.btn-primary {
-  background: #2563eb;
-  color: #fff;
-  border-color: #2563eb;
-}
-.btn-primary:hover { background: #1d4ed8; }
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-.btn-danger {
-  background: #dc2626;
-  color: #fff;
-  border-color: #dc2626;
-}
-.btn-danger:hover { background: #b91c1c; }
-.btn-sm {
-  padding: 0.25rem 0.6rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: #fff;
-  cursor: pointer;
-  font-size: 0.8rem;
-}
-.btn-sm:hover { background: #f5f5f5; }
-.btn-sm.btn-danger {
-  color: #dc2626;
-  border-color: #fca5a5;
-  background: #fff;
-}
-.btn-sm.btn-danger:hover {
-  background: #fef2f2;
-}
-
-.dialog-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-.dialog {
-  background: #fff;
-  border-radius: 12px;
-  padding: 2rem;
-  width: 420px;
-  max-width: 90vw;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-}
-.dialog-sm { width: 360px; }
-.dialog h2 {
-  margin-bottom: 1.25rem;
-  font-size: 1.25rem;
-  color: #333;
-}
-.form-group {
-  margin-bottom: 1rem;
-}
-.form-group label {
-  display: block;
-  margin-bottom: 0.3rem;
-  font-size: 0.875rem;
-  color: #555;
-}
-.form-group input,
-.form-group select {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  box-sizing: border-box;
-}
-.form-group input:focus,
-.form-group select:focus {
-  outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37,99,235,0.15);
-}
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
-}
-.error {
-  color: #dc2626;
-  margin-top: 0.75rem;
-  font-size: 0.875rem;
+  margin-bottom: 20px;
 }
 </style>

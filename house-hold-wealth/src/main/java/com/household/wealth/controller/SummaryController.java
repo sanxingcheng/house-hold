@@ -1,7 +1,7 @@
 package com.household.wealth.controller;
 
+import com.household.common.exception.BadRequestException;
 import com.household.wealth.dto.response.WealthSummaryResponse;
-import com.household.wealth.service.AccountService;
 import com.household.wealth.service.SummaryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -29,7 +29,7 @@ public class SummaryController {
     public ResponseEntity<WealthSummaryResponse> familySummary(
             @RequestHeader(value = "X-Family-Id", required = false) Long familyId) {
         if (familyId == null) {
-            throw new AccountService.NoFamilyException("尚未加入家庭");
+            throw new BadRequestException("尚未加入家庭");
         }
         return ResponseEntity.ok(summaryService.getFamilySummary(familyId));
     }

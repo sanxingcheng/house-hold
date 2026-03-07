@@ -52,4 +52,43 @@ public class AccountController {
         accountService.deleteAccount(userId, id);
         return ResponseEntity.noContent().build();
     }
+
+    // ======================== 管理员代管成员账户 ========================
+
+    @GetMapping("/member/{targetUserId}")
+    public ResponseEntity<List<AccountResponse>> listMemberAccounts(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader(value = "X-Family-Id", required = false) Long familyId,
+            @PathVariable Long targetUserId) {
+        return ResponseEntity.ok(accountService.getAccountsForMember(userId, familyId, targetUserId));
+    }
+
+    @PostMapping("/member/{targetUserId}")
+    public ResponseEntity<AccountResponse> createForMember(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader(value = "X-Family-Id", required = false) Long familyId,
+            @PathVariable Long targetUserId,
+            @Valid @RequestBody AccountCreateRequest req) {
+        return ResponseEntity.ok(accountService.createAccountForMember(userId, familyId, targetUserId, req));
+    }
+
+    @PutMapping("/member/{targetUserId}/{accountId}")
+    public ResponseEntity<AccountResponse> updateForMember(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader(value = "X-Family-Id", required = false) Long familyId,
+            @PathVariable Long targetUserId,
+            @PathVariable Long accountId,
+            @Valid @RequestBody AccountUpdateRequest req) {
+        return ResponseEntity.ok(accountService.updateAccountForMember(userId, familyId, targetUserId, accountId, req));
+    }
+
+    @DeleteMapping("/member/{targetUserId}/{accountId}")
+    public ResponseEntity<Void> deleteForMember(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader(value = "X-Family-Id", required = false) Long familyId,
+            @PathVariable Long targetUserId,
+            @PathVariable Long accountId) {
+        accountService.deleteAccountForMember(userId, familyId, targetUserId, accountId);
+        return ResponseEntity.noContent().build();
+    }
 }

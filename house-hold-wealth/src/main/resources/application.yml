@@ -7,13 +7,11 @@ spring:
   config:
     import: optional:nacos:${spring.application.name}.yaml
   datasource:
-    url: jdbc:mysql://127.0.0.1:3306/household?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-    username: root
-    password: Admin@123
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    driver-class-name: org.apache.shardingsphere.driver.ShardingSphereDriver
+    url: jdbc:shardingsphere:classpath:shardingsphere.yaml
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: none
     show-sql: false
     open-in-view: false
     properties:
@@ -38,7 +36,13 @@ management:
   endpoints:
     web:
       exposure:
-        include: '*'
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
 
 cache:
   enabled: true
@@ -52,3 +56,8 @@ cache:
     redis-random-max: 60
     null-placeholder-seconds: 120
   key-prefix: "household:wealth:"
+
+snapshot:
+  scheduler:
+    enabled: true
+    cron: "0 0 2 * * ?"

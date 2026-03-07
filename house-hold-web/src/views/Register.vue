@@ -1,88 +1,103 @@
 <template>
   <GuestLayout>
-    <div class="card">
-      <h1 class="title">注册</h1>
-      <form class="form" @submit.prevent="onSubmit">
-        <div v-if="error" class="error">{{ error }}</div>
-        <div class="field">
-          <label>用户名（4-32 字符）</label>
-          <input v-model="username" type="text" required minlength="4" maxlength="32" placeholder="请输入用户名" />
-        </div>
-        <div class="field">
-          <label>密码（至少 6 位）</label>
-          <input v-model="password" type="password" required minlength="6" placeholder="请输入密码" />
-        </div>
-        <div class="field">
-          <label>确认密码</label>
-          <input v-model="confirmPassword" type="password" required placeholder="请再次输入密码" />
-        </div>
-        <div class="field">
-          <label>生日</label>
-          <input v-model="birthday" type="date" required />
-        </div>
-        <div class="field">
-          <label>邮箱（选填）</label>
-          <input v-model="email" type="email" placeholder="选填" />
-        </div>
-        <div class="field">
-          <label>手机（选填）</label>
-          <input v-model="phone" type="text" placeholder="选填" />
-        </div>
-        <button type="submit" class="btn" :disabled="loading">注册</button>
-      </form>
-      <p class="link">
-        已有账号？<router-link to="/login">去登录</router-link>
-      </p>
+    <h2 style="text-align:center;margin:0 0 24px;font-size:1.4rem;color:#303133">注册</h2>
+    <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon style="margin-bottom:16px" />
+    <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent="onSubmit">
+      <el-form-item label="用户名" prop="username">
+        <el-input v-model="form.username" placeholder="4-32 个字符" :prefix-icon="User" />
+      </el-form-item>
+      <el-form-item label="密码" prop="password">
+        <el-input v-model="form.password" type="password" show-password placeholder="至少 6 位" :prefix-icon="Lock" />
+      </el-form-item>
+      <el-form-item label="确认密码" prop="confirmPassword">
+        <el-input v-model="form.confirmPassword" type="password" show-password placeholder="请再次输入密码" :prefix-icon="Lock" />
+      </el-form-item>
+      <el-form-item label="生日" prop="birthday">
+        <el-date-picker v-model="form.birthday" type="date" placeholder="选择日期" value-format="YYYY-MM-DD" style="width:100%" />
+      </el-form-item>
+      <el-form-item label="邮箱（选填）">
+        <el-input v-model="form.email" placeholder="选填" />
+      </el-form-item>
+      <el-form-item label="手机（选填）">
+        <el-input v-model="form.phone" placeholder="选填" />
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" native-type="submit" :loading="loading" style="width:100%">注册</el-button>
+      </el-form-item>
+    </el-form>
+    <div style="text-align:center;font-size:0.9rem;color:#909399">
+      已有账号？<router-link to="/login" style="color:var(--el-color-primary)">去登录</router-link>
     </div>
   </GuestLayout>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
+import type { FormInstance, FormRules } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { User, Lock } from '@element-plus/icons-vue'
 import GuestLayout from '@/layouts/GuestLayout.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
 const router = useRouter()
-
-const username = ref('')
-const password = ref('')
-const confirmPassword = ref('')
-const birthday = ref('')
-const email = ref('')
-const phone = ref('')
+const formRef = ref<FormInstance>()
 const loading = ref(false)
 const error = ref('')
 
+const form = reactive({
+  username: '',
+  password: '',
+  confirmPassword: '',
+  birthday: '',
+  email: '',
+  phone: '',
+})
+
+const validateConfirm = (_rule: unknown, value: string, callback: (err?: Error) => void) => {
+  if (value !== form.password) {
+    callback(new Error('两次输入的密码不一致'))
+  } else {
+    callback()
+  }
+}
+
+const rules: FormRules = {
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 4, max: 32, message: '用户名长度为 4-32 个字符', trigger: 'blur' },
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码至少 6 位', trigger: 'blur' },
+  ],
+  confirmPassword: [
+    { required: true, message: '请确认密码', trigger: 'blur' },
+    { validator: validateConfirm, trigger: 'blur' },
+  ],
+  birthday: [
+    { required: true, message: '请选择生日', trigger: 'change' },
+  ],
+}
+
 async function onSubmit() {
+  if (!formRef.value) return
+  const valid = await formRef.value.validate().catch(() => false)
+  if (!valid) return
+
   error.value = ''
-  if (password.value !== confirmPassword.value) {
-    error.value = '两次输入的密码不一致'
-    return
-  }
-  if (username.value.length < 4 || username.value.length > 32) {
-    error.value = '用户名长度为 4-32 个字符'
-    return
-  }
-  if (password.value.length < 6) {
-    error.value = '密码至少 6 位'
-    return
-  }
-  if (!birthday.value) {
-    error.value = '请选择生日'
-    return
-  }
   loading.value = true
   try {
     await authStore.register({
-      username: username.value.trim(),
-      password: password.value,
-      birthday: birthday.value,
-      email: email.value.trim() || undefined,
-      phone: phone.value.trim() || undefined,
+      username: form.username.trim(),
+      password: form.password,
+      birthday: form.birthday,
+      email: form.email.trim() || undefined,
+      phone: form.phone.trim() || undefined,
     })
-    await authStore.login(username.value.trim(), password.value)
+    ElMessage.success('注册成功，正在登录...')
+    await authStore.login(form.username.trim(), form.password)
     router.push('/dashboard')
   } catch (e: unknown) {
     const err = e as { message?: string }
@@ -92,62 +107,3 @@ async function onSubmit() {
   }
 }
 </script>
-
-<style scoped>
-.card {
-  width: 100%;
-  max-width: 360px;
-  padding: 2rem;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-.title {
-  margin: 0 0 1.5rem;
-  font-size: 1.5rem;
-  text-align: center;
-}
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-.error {
-  padding: 0.5rem;
-  background: #fee;
-  color: #c00;
-  border-radius: 4px;
-  font-size: 0.875rem;
-}
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-.field label { font-size: 0.875rem; color: #555; }
-.field input {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-}
-.btn {
-  margin-top: 0.5rem;
-  padding: 0.6rem 1rem;
-  background: #198754;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  cursor: pointer;
-}
-.btn:hover:not(:disabled) { background: #157347; }
-.btn:disabled { opacity: 0.7; cursor: not-allowed; }
-.link {
-  margin: 1.5rem 0 0;
-  text-align: center;
-  font-size: 0.875rem;
-  color: #666;
-}
-.link a { color: #0d6efd; }
-</style>

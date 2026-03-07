@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS user_base (
   KEY idx_family_id (family_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
 
--- 迭代二：家庭表
+-- 迭代二：家庭表（迭代五增加 created_by）
 CREATE TABLE IF NOT EXISTS family (
   id BIGINT PRIMARY KEY COMMENT '家庭ID',
   name_alias VARCHAR(64) NOT NULL COMMENT '家庭别名',
@@ -22,19 +22,37 @@ CREATE TABLE IF NOT EXISTS family (
   province VARCHAR(64) NOT NULL DEFAULT '' COMMENT '省份',
   city VARCHAR(64) NOT NULL DEFAULT '' COMMENT '城市',
   street VARCHAR(256) NOT NULL DEFAULT '' COMMENT '街道',
+  created_by BIGINT NOT NULL DEFAULT 0 COMMENT '创建者用户ID（户主）',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='家庭表';
 
--- 迭代二：家庭成员角色表
+-- 迭代二：家庭成员角色表（迭代五增加 is_admin）
 CREATE TABLE IF NOT EXISTS family_member_role (
   id BIGINT PRIMARY KEY COMMENT '主键',
   user_id BIGINT NOT NULL COMMENT '用户ID',
   family_id BIGINT NOT NULL COMMENT '家庭ID',
   role VARCHAR(32) NOT NULL DEFAULT 'OTHER' COMMENT '角色:HUSBAND,WIFE,CHILD,OTHER',
+  is_admin TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否管理员',
   joined_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '加入时间',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   UNIQUE KEY uk_user_family (user_id, family_id),
   KEY idx_family_id (family_id),
   KEY idx_user_id (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='家庭成员角色表';
+
+-- 迭代五：家庭加入请求表
+CREATE TABLE IF NOT EXISTS family_join_request (
+  id BIGINT PRIMARY KEY COMMENT '请求ID',
+  family_id BIGINT NOT NULL COMMENT '家庭ID',
+  user_id BIGINT NOT NULL COMMENT '申请人或被邀请人',
+  request_type VARCHAR(16) NOT NULL COMMENT 'APPLY=主动申请, INVITE=管理员邀请',
+  status VARCHAR(16) NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING/APPROVED/REJECTED',
+  initiated_by BIGINT NOT NULL COMMENT '发起人',
+  handled_by BIGINT DEFAULT NULL COMMENT '处理人',
+  handled_at DATETIME DEFAULT NULL COMMENT '处理时间',
+  role VARCHAR(32) NOT NULL DEFAULT 'OTHER' COMMENT '加入后角色',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  KEY idx_family_user (family_id, user_id),
+  KEY idx_user_status (user_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='家庭加入请求表';

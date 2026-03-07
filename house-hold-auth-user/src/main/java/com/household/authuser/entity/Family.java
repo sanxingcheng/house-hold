@@ -37,6 +37,9 @@ public class Family {
     @Column(length = 256)
     private String street;
 
+    @Column(name = "created_by", nullable = false)
+    private Long createdBy;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 

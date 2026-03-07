@@ -11,7 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * 认证接口，提供注册和登录功能
+ * 认证接口，提供注册、登录和登出功能
  *
  * @author household
  * @date 2025/01/01
@@ -38,5 +38,11 @@ public class AuthController {
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         LoginResponse response = authService.login(request);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@RequestHeader("X-User-Id") Long userId) {
+        authService.logout(userId);
+        return ResponseEntity.noContent().build();
     }
 }

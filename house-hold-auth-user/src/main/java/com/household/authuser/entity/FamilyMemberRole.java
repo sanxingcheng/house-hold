@@ -32,6 +32,9 @@ public class FamilyMemberRole {
     @Column(nullable = false, length = 32)
     private String role;
 
+    @Column(name = "is_admin", nullable = false)
+    private Boolean isAdmin = false;
+
     @Column(name = "joined_at", nullable = false)
     private LocalDateTime joinedAt;
 

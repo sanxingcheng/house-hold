@@ -1,16 +1,16 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import {
-  getAccounts,
-  createAccount,
-  updateAccount,
-  deleteAccount,
-  getUserSummary,
-  getFamilySummary,
-  getUserHistory,
-  getFamilyHistory,
+  getAccounts, createAccount, updateAccount, deleteAccount,
+  getUserSummary, getFamilySummary, getUserHistory, getFamilyHistory,
+  getFamilyAssets, createFamilyAsset, updateFamilyAsset, deleteFamilyAsset,
+  getMemberAccounts, createMemberAccount, updateMemberAccount, deleteMemberAccount,
 } from '@/api/wealth'
-import type { Account, AccountCreateRequest, AccountUpdateRequest, WealthSummary, SnapshotPoint } from '@/types/wealth'
+import type {
+  Account, AccountCreateRequest, AccountUpdateRequest,
+  WealthSummary, SnapshotPoint,
+  FamilyAsset, FamilyAssetCreateRequest, FamilyAssetUpdateRequest,
+} from '@/types/wealth'
 
 export const useWealthStore = defineStore('wealth', () => {
   const accounts = ref<Account[]>([])
@@ -18,6 +18,8 @@ export const useWealthStore = defineStore('wealth', () => {
   const familySummary = ref<WealthSummary | null>(null)
   const userHistory = ref<SnapshotPoint[]>([])
   const familyHistory = ref<SnapshotPoint[]>([])
+  const familyAssets = ref<FamilyAsset[]>([])
+  const memberAccounts = ref<Account[]>([])
 
   async function fetchAccounts() {
     const { data } = await getAccounts()
@@ -76,28 +78,71 @@ export const useWealthStore = defineStore('wealth', () => {
     }
   }
 
+  // Family assets
+  async function fetchFamilyAssets() {
+    const { data } = await getFamilyAssets()
+    familyAssets.value = data
+    return data
+  }
+
+  async function addFamilyAsset(payload: FamilyAssetCreateRequest) {
+    const { data } = await createFamilyAsset(payload)
+    await fetchFamilyAssets()
+    return data
+  }
+
+  async function editFamilyAsset(id: string, payload: FamilyAssetUpdateRequest) {
+    const { data } = await updateFamilyAsset(id, payload)
+    await fetchFamilyAssets()
+    return data
+  }
+
+  async function removeFamilyAsset(id: string) {
+    await deleteFamilyAsset(id)
+    await fetchFamilyAssets()
+  }
+
+  // Admin: member accounts
+  async function fetchMemberAccounts(targetUserId: string) {
+    const { data } = await getMemberAccounts(targetUserId)
+    memberAccounts.value = data
+    return data
+  }
+
+  async function addMemberAccount(targetUserId: string, payload: AccountCreateRequest) {
+    const { data } = await createMemberAccount(targetUserId, payload)
+    await fetchMemberAccounts(targetUserId)
+    return data
+  }
+
+  async function editMemberAccount(targetUserId: string, accountId: string, payload: AccountUpdateRequest) {
+    const { data } = await updateMemberAccount(targetUserId, accountId, payload)
+    await fetchMemberAccounts(targetUserId)
+    return data
+  }
+
+  async function removeMemberAccount(targetUserId: string, accountId: string) {
+    await deleteMemberAccount(targetUserId, accountId)
+    await fetchMemberAccounts(targetUserId)
+  }
+
   function clear() {
     accounts.value = []
     userSummary.value = null
     familySummary.value = null
     userHistory.value = []
     familyHistory.value = []
+    familyAssets.value = []
+    memberAccounts.value = []
   }
 
   return {
-    accounts,
-    userSummary,
-    familySummary,
-    userHistory,
-    familyHistory,
-    fetchAccounts,
-    addAccount,
-    editAccount,
-    removeAccount,
-    fetchUserSummary,
-    fetchFamilySummary,
-    fetchUserHistory,
-    fetchFamilyHistory,
+    accounts, userSummary, familySummary, userHistory, familyHistory,
+    familyAssets, memberAccounts,
+    fetchAccounts, addAccount, editAccount, removeAccount,
+    fetchUserSummary, fetchFamilySummary, fetchUserHistory, fetchFamilyHistory,
+    fetchFamilyAssets, addFamilyAsset, editFamilyAsset, removeFamilyAsset,
+    fetchMemberAccounts, addMemberAccount, editMemberAccount, removeMemberAccount,
     clear,
   }
 })

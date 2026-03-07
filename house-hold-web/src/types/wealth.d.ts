@@ -44,3 +44,38 @@ export interface SnapshotPoint {
   snapshotDate: string
   netWorth: number
 }
+
+export type FamilyAssetType =
+  | 'REAL_ESTATE'
+  | 'VEHICLE'
+  | 'DEPOSIT'
+  | 'INVESTMENT'
+  | 'OTHER'
+
+export interface FamilyAsset {
+  id: string
+  familyId: string
+  assetName: string
+  assetType: FamilyAssetType
+  amount: number
+  currency: string
+  remark?: string
+  createdBy: string
+  createdAt?: string
+}
+
+export interface FamilyAssetCreateRequest {
+  assetName: string
+  assetType: FamilyAssetType
+  amount: number
+  currency?: string
+  remark?: string
+}
+
+export interface FamilyAssetUpdateRequest {
+  assetName?: string
+  assetType?: FamilyAssetType
+  amount?: number
+  currency?: string
+  remark?: string
+}

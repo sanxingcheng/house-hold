@@ -13,3 +13,7 @@ export function login(data: LoginRequest) {
 export function register(data: RegisterRequest) {
   return request.post<RegisterResponse>('/auth/register', data)
 }
+
+export function logout() {
+  return request.post('/auth/logout')
+}

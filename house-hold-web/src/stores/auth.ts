@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { login as apiLogin, register as apiRegister } from '@/api/auth'
+import { login as apiLogin, register as apiRegister, logout as apiLogout } from '@/api/auth'
 import type { RegisterRequest } from '@/types/auth'
 import router from '@/router'
 
@@ -40,7 +40,8 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (_) {}
   }
 
-  function logout() {
+  async function logout() {
+    try { await apiLogout() } catch (_) {}
     token.value = null
     user.value = null
     try {

@@ -19,9 +19,19 @@ public interface FamilyMemberRoleRepository extends JpaRepository<FamilyMemberRo
 
     Optional<FamilyMemberRole> findByUserIdAndFamilyId(Long userId, Long familyId);
 
+    List<FamilyMemberRole> findByFamilyIdAndIsAdminTrue(Long familyId);
+
     @Modifying
     @Query("UPDATE FamilyMemberRole r SET r.role = :role WHERE r.userId = :userId AND r.familyId = :familyId")
     int updateRoleByUserIdAndFamilyId(@Param("userId") Long userId,
                                       @Param("familyId") Long familyId,
                                       @Param("role") String role);
+
+    @Modifying
+    @Query("UPDATE FamilyMemberRole r SET r.isAdmin = :isAdmin WHERE r.userId = :userId AND r.familyId = :familyId")
+    int updateIsAdminByUserIdAndFamilyId(@Param("userId") Long userId,
+                                         @Param("familyId") Long familyId,
+                                         @Param("isAdmin") Boolean isAdmin);
+
+    void deleteByUserIdAndFamilyId(Long userId, Long familyId);
 }

@@ -5,15 +5,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.household.authuser.config.CacheProperties;
 import com.household.authuser.dto.response.UserProfileResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RBucket;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 @Slf4j
@@ -25,29 +25,26 @@ public class UserCacheService {
     private final com.github.benmanes.caffeine.cache.Cache<String, Object> localCache;
     private final CacheProperties props;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final ConcurrentHashMap<String, Lock> loadLocks = new ConcurrentHashMap<>();
-    private final StringRedisTemplate redisTemplate; // null when Redis not configured
+    private final RedissonClient redissonClient;
 
     public UserCacheService(com.github.benmanes.caffeine.cache.Cache<String, Object> localCache,
                             CacheProperties props,
-                            java.util.Optional<StringRedisTemplate> redisTemplate) {
+                            Optional<RedissonClient> redissonClient) {
         this.localCache = localCache;
         this.props = props;
-        this.redisTemplate = redisTemplate.orElse(null);
+        this.redissonClient = redissonClient.orElse(null);
     }
 
     public UserProfileResponse get(Long userId, Supplier<UserProfileResponse> loader) {
         String key = "user:info:" + userId;
         String fullKey = props.getKeyPrefix() + key;
-        // L1
         Object cached = localCache.getIfPresent(fullKey);
         if (cached != null) {
             if (NULL_PLACEHOLDER.equals(cached)) return null;
             return (UserProfileResponse) cached;
         }
-        // L2
-        if (redisTemplate != null) {
-            String json = redisTemplate.opsForValue().get(fullKey);
+        if (redissonClient != null) {
+            String json = (String) redissonClient.getBucket(fullKey).get();
             if (json != null) {
                 if (NULL_PLACEHOLDER.equals(json)) {
                     localCache.put(fullKey, NULL_PLACEHOLDER);
@@ -62,16 +59,16 @@ public class UserCacheService {
                 }
             }
         }
-        Lock lock = loadLocks.computeIfAbsent(fullKey, k -> new ReentrantLock());
-        lock.lock();
+        RLock lock = redissonClient != null ? redissonClient.getLock("lock:" + fullKey) : null;
+        if (lock != null) lock.lock();
         try {
             cached = localCache.getIfPresent(fullKey);
             if (cached != null) {
                 if (NULL_PLACEHOLDER.equals(cached)) return null;
                 return (UserProfileResponse) cached;
             }
-            if (redisTemplate != null) {
-                String json = redisTemplate.opsForValue().get(fullKey);
+            if (redissonClient != null) {
+                String json = (String) redissonClient.getBucket(fullKey).get();
                 if (json != null) {
                     if (NULL_PLACEHOLDER.equals(json)) return null;
                     try {
@@ -85,16 +82,19 @@ public class UserCacheService {
             }
             UserProfileResponse res = loader.get();
             if (res == null) {
-                if (redisTemplate != null) {
-                    redisTemplate.opsForValue().set(fullKey, NULL_PLACEHOLDER, java.time.Duration.ofSeconds(props.getTtl().getNullPlaceholderSeconds()));
+                if (redissonClient != null) {
+                    redissonClient.getBucket(fullKey).set(NULL_PLACEHOLDER,
+                            Duration.ofSeconds(props.getTtl().getNullPlaceholderSeconds()));
                 }
                 localCache.put(fullKey, NULL_PLACEHOLDER);
                 return null;
             }
-            int ttl = props.getTtl().getRedisUserSeconds() + ThreadLocalRandom.current().nextInt(Math.max(1, props.getTtl().getRedisRandomMax()));
-            if (redisTemplate != null) {
+            int ttl = props.getTtl().getRedisUserSeconds()
+                    + ThreadLocalRandom.current().nextInt(Math.max(1, props.getTtl().getRedisRandomMax()));
+            if (redissonClient != null) {
                 try {
-                    redisTemplate.opsForValue().set(fullKey, objectMapper.writeValueAsString(res), java.time.Duration.ofSeconds(ttl));
+                    redissonClient.getBucket(fullKey).set(objectMapper.writeValueAsString(res),
+                            Duration.ofSeconds(ttl));
                 } catch (JsonProcessingException e) {
                     log.warn("Failed to serialize user cache for key {}: {}", fullKey, e.getMessage());
                 }
@@ -102,16 +102,15 @@ public class UserCacheService {
             localCache.put(fullKey, res);
             return res;
         } finally {
-            lock.unlock();
-            loadLocks.remove(fullKey, lock); // atomic: only remove if still this exact lock
+            if (lock != null && lock.isHeldByCurrentThread()) lock.unlock();
         }
     }
 
     public void invalidate(Long userId) {
         String fullKey = props.getKeyPrefix() + "user:info:" + userId;
         localCache.invalidate(fullKey);
-        if (redisTemplate != null) {
-            redisTemplate.delete(fullKey);
+        if (redissonClient != null) {
+            redissonClient.getBucket(fullKey).delete();
         }
     }
 }
