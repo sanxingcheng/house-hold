@@ -11,6 +11,7 @@ public class RegisterResponse {
     private String id;
     private String username;
     private String name;
+    private String gender;
     private String birthday;
     private String email;
     private String phone;

@@ -48,6 +48,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/family/accounts',
+      name: 'FamilyAccounts',
+      component: () => import('@/views/FamilyAccounts.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/wealth/accounts',
       name: 'WealthAccounts',
       component: () => import('@/views/WealthAccounts.vue'),

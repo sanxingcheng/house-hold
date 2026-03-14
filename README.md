@@ -72,8 +72,9 @@
   - **api-gateway**（网关服务）：统一入口、路由转发、鉴权（JWT/Token）、限流等
   - **config/registry**：Nacos 作为配置中心与服务发现
 - **支撑组件**
-  - MySQL：用户与财富业务数据存储
+  - MySQL：各微服务独立库（`household_auth` / `household_wealth`），业务数据按服务隔离存储
   - Redis：分布式缓存层（用户信息、账户信息、聚合结果、会话）
+  - Kafka：异步领域事件（Topic `household.family.events`），auth-user 发布家庭创建/管理员变更/成员移除等事件
   - Caffeine：本地缓存（热点数据）
   - Spring Boot Actuator + Micrometer/Prometheus（健康检查与监控指标）
   - Logback 结构化日志（dev 彩色控制台 / prod JSON）+ MDC 请求追踪
@@ -297,11 +298,13 @@ GW --> FE : 展示趋势图
 
 ### 六、数据库与分表设计
 
-- **单库多表**：所有服务共用 `household` 库
-- **ShardingSphere-JDBC 水平分表**（迭代四）：`account` 表按 `user_id % 4` 分为 4 张物理表（`account_0` ~ `account_3`），ShardingSphere-JDBC 透明路由
-- **未分表的表**：`user_base`、`family`、`family_member_role`、`family_join_request`、`wealth_snapshot`、`family_asset` 保持原样
-- **分片键**：`user_id`；`findByUserId` 精确路由单表，`findByFamilyId` 广播查询 4 表
-- **DDL 管理**：分表由手动 DDL 创建，JPA `ddl-auto` 设为 `none`（wealth 服务）
+- **微服务数据库隔离**：各微服务使用独立数据库，避免跨库耦合。
+  - **auth-user 服务**：使用数据库 `household_auth`，表包括 `user_base`、`family`、`family_member_role`、`family_join_request`。
+  - **wealth 服务**：使用数据库 `household_wealth`，表包括 `account_0`～`account_3`（分片）、`wealth_snapshot`、`family_asset`。
+  - 首次部署需执行 `scripts/init-databases.sql` 创建上述两个库。
+- **ShardingSphere-JDBC 水平分表**（wealth 库内）：`account` 表按 `user_id % 4` 分为 4 张物理表（`account_0` ~ `account_3`），ShardingSphere-JDBC 透明路由。
+- **分片键**：`user_id`；`findByUserId` 精确路由单表，`findByFamilyId` 广播查询 4 表。
+- **DDL 管理**：auth-user 使用 JPA `ddl-auto: update` 建表；wealth 使用 `ddl-auto: none`，分表及 wealth 库表结构需按 `schema.sql` 手动执行。
 
 ### 七、缓存设计（三级缓存策略）
 
@@ -359,8 +362,10 @@ end
   2. 通过 Redisson 查询 Redis 会话，确认 token 与服务端存储一致（支持主动登出、踢人等场景）
   3. 校验通过后将 userId、familyId 注入请求头传给下游服务
 - **Redis 客户端**：全局统一使用 Redisson，缓存防击穿使用 Redisson 分布式锁（`RLock`）替代本地 `ReentrantLock`，支持多实例部署
-- **数据访问控制**：用户只能访问自己相关数据；家庭级统计接口需校验用户是否属于该家庭；管理员操作通过 Redis Set（`family:admins:{familyId}`）跨服务验证权限
-- **家庭管理员缓存**：auth-user 服务在管理员状态变更时维护 Redis Set，wealth 服务通过 `FamilyAdminChecker` 工具类（common 模块）读取判断权限，避免同步跨服务调用
+- **数据访问控制**：用户只能访问自己相关数据；家庭级统计接口需校验用户是否属于该家庭；管理员操作由 wealth 通过 **REST 同步调用** auth-user 的 `GET /family/{familyId}/admin/check` 校验权限（OpenFeign）。
+- **微服务间通信**：
+  - **同步 REST**：wealth 需校验「当前用户是否为家庭管理员」时，通过 OpenFeign 调用 auth-user 的 `/family/{familyId}/admin/check`（请求头带 `X-User-Id`），按业务场景使用 REST 保证强一致。
+  - **异步 Kafka**：auth-user 在家庭创建、管理员变更、成员移除等场景向 Topic `household.family.events` 发送领域事件（`FamilyDomainEvent`），下游服务可订阅做缓存失效、审计等，按业务场景使用消息解耦、最终一致。
 
 ### 九、非功能性需求
 
@@ -368,6 +373,7 @@ end
 - **可用性**：Nacos + 多实例部署；Redis 哨兵/集群部署（设计时考虑，初期可单机）
 - **可观测性**：Spring Boot Actuator 暴露 `/actuator/health`、`/actuator/prometheus` 端点；Logback 结构化日志（dev 彩色 / prod JSON）；RequestLoggingFilter + MDC traceId 全链路追踪；Gateway AccessLogGlobalFilter 记录路由与耗时
 - **扩展性**：增加预算管理、记账流水、报表导出等新功能时，无需大改核心架构
+- **容器部署**：各服务提供 Dockerfile（`docker/` 下为后端，`house-hold-web/Dockerfile` 为前端），并提供 Kubernetes 清单（`k8s/`）及 [容器部署说明](容器部署说明.md)，支持在 Docker 与 K8s 环境下部署
 
 ### 十、开发迭代计划（建议）
 
@@ -375,4 +381,5 @@ end
 - **迭代二：用户与家庭管理**：用户信息维护、家庭创建/加入、家庭信息展示；初步接入 Cache（用户与家庭信息）
 - **迭代三：财富管理**：账户 CRUD、资产汇总 API、历史趋势数据结构与存储；前端账户与趋势图展示页面
 - **迭代四：优化与完善**：Spring Boot Actuator + Micrometer/Prometheus 监控；Logback 结构化日志 + MDC 请求追踪；Spring Scheduler + Redisson 分布式锁定时快照；ShardingSphere-JDBC account 表水平分表（4 分片）；前端全面引入 Element Plus + ECharts，UI/UX 全面重构
-- **迭代五：家庭管理权限与共有资产**：家庭管理员体系（户主/管理员）；双向加入流程（申请审批/邀请确认）；管理员创建新用户并自动加入家庭；家庭共有资产模块（管理员 CRUD / 成员查看）；管理员代管其他成员个人资产；Redis Set 跨服务管理员权限校验
+- **迭代五：家庭管理权限与共有资产**：家庭管理员体系（户主/管理员）；双向加入流程（申请审批/邀请确认）；管理员创建新用户并自动加入家庭；家庭共有资产模块（管理员 CRUD / 成员查看）；管理员代管其他成员个人资产；REST（OpenFeign）同步校验管理员、Kafka 异步领域事件
+- **微服务数据库与通信**：各微服务独立数据库（`household_auth` / `household_wealth`）；微服务间按场景使用 Kafka 异步消息（家庭领域事件）或 REST 同步调用（如管理员校验）

@@ -33,7 +33,7 @@ public class FamilyAdminController {
         }
         User newUser = authService.registerForFamily(
                 request.getUsername(), request.getPassword(), request.getName(),
-                request.getBirthday(), request.getEmail(), request.getPhone());
+                request.getGender(), request.getBirthday(), request.getEmail(), request.getPhone());
         FamilyResponse response = familyService.addCreatedMember(familyId, newUser, request.getRole());
         return ResponseEntity.ok(response);
     }

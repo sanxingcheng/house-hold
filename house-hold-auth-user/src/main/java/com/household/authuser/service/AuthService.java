@@ -49,6 +49,7 @@ public class AuthService {
         user.setUsername(req.getUsername());
         user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
         user.setName(req.getName());
+        user.setGender(req.getGender());
         user.setBirthday(birthday);
         user.setEmail(req.getEmail());
         user.setPhone(req.getPhone());
@@ -57,6 +58,7 @@ public class AuthService {
                 String.valueOf(user.getId()),
                 user.getUsername(),
                 user.getName(),
+                user.getGender(),
                 user.getBirthday().toString(),
                 user.getEmail(),
                 user.getPhone()
@@ -83,8 +85,8 @@ public class AuthService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public User registerForFamily(String username, String password, String name, String birthday,
-                                  String email, String phone) {
+    public User registerForFamily(String username, String password, String name, String gender,
+                                  String birthday, String email, String phone) {
         if (userRepository.findByUsername(username).isPresent()) {
             throw new UsernameExistsException("用户名已被使用");
         }
@@ -94,6 +96,7 @@ public class AuthService {
         user.setUsername(username);
         user.setPasswordHash(passwordEncoder.encode(password));
         user.setName(name);
+        user.setGender(gender);
         user.setBirthday(bd);
         user.setEmail(email);
         user.setPhone(phone);

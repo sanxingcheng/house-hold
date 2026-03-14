@@ -12,6 +12,8 @@ import com.household.authuser.entity.User;
 import com.household.authuser.repository.FamilyJoinRequestRepository;
 import com.household.authuser.repository.FamilyMemberRoleRepository;
 import com.household.authuser.repository.FamilyRepository;
+import com.household.authuser.event.FamilyDomainEvent;
+import com.household.authuser.event.FamilyEventProducer;
 import com.household.authuser.repository.UserRepository;
 import com.household.common.exception.BadRequestException;
 import com.household.common.exception.ForbiddenException;
@@ -24,9 +26,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.redisson.api.RLock;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -57,43 +62,63 @@ public class FamilyService {
     private FamilyCacheService familyCacheService;
     @Autowired(required = false)
     private UserCacheService userCacheService;
+    @Autowired(required = false)
+    private FamilyEventProducer familyEventProducer;
 
     // ======================== 基础操作 ========================
 
     @Transactional(rollbackFor = Exception.class)
     public FamilyResponse create(Long userId, FamilyCreateRequest req) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("用户不存在"));
-        if (user.getFamilyId() != null) {
-            throw new BadRequestException("您已属于一个家庭，无法重复创建");
+        RLock lock = redissonClient.getLock("lock:family:user:" + userId);
+        try {
+            if (!lock.tryLock(0, 10, TimeUnit.SECONDS)) {
+                throw new BadRequestException("操作正在处理中，请勿重复提交");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BadRequestException("操作被中断");
         }
-        Long familyId = FAMILY_ID_GEN.nextId();
-        Family family = new Family();
-        family.setId(familyId);
-        family.setNameAlias(req.getNameAlias());
-        family.setCountry(req.getCountry());
-        family.setProvince(req.getProvince());
-        family.setCity(req.getCity());
-        family.setStreet(req.getStreet());
-        family.setCreatedBy(userId);
-        familyRepository.save(family);
+        try {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new NotFoundException("用户不存在"));
+            if (user.getFamilyId() != null) {
+                throw new BadRequestException("您已属于一个家庭，无法重复创建");
+            }
+            Long familyId = FAMILY_ID_GEN.nextId();
+            Family family = new Family();
+            family.setId(familyId);
+            family.setNameAlias(req.getNameAlias());
+            family.setCountry(req.getCountry());
+            family.setProvince(req.getProvince());
+            family.setCity(req.getCity());
+            family.setStreet(req.getStreet());
+            family.setCreatedBy(userId);
+            familyRepository.save(family);
 
-        FamilyMemberRole role = new FamilyMemberRole();
-        role.setId(MEMBER_ROLE_ID_GEN.nextId());
-        role.setUserId(userId);
-        role.setFamilyId(familyId);
-        role.setRole(normalizeRole(req.getRole()));
-        role.setIsAdmin(true);
-        role.setJoinedAt(LocalDateTime.now());
-        familyMemberRoleRepository.save(role);
+            FamilyMemberRole role = new FamilyMemberRole();
+            role.setId(MEMBER_ROLE_ID_GEN.nextId());
+            role.setUserId(userId);
+            role.setFamilyId(familyId);
+            role.setRole(normalizeRole(req.getRole()));
+            role.setIsAdmin(true);
+            role.setJoinedAt(LocalDateTime.now());
+            familyMemberRoleRepository.save(role);
 
-        user.setFamilyId(familyId);
-        userRepository.save(user);
+            user.setFamilyId(familyId);
+            userRepository.save(user);
 
-        FamilyAdminChecker.addAdmin(redissonClient, familyId, userId);
-        invalidateCaches(familyId, userId);
-
-        return toResponse(family, List.of(role));
+            FamilyAdminChecker.addAdmin(redissonClient, familyId, userId);
+            invalidateCaches(familyId, userId);
+            if (familyEventProducer != null) {
+                familyEventProducer.publish(FamilyDomainEvent.familyCreated(familyId, userId));
+                familyEventProducer.publish(FamilyDomainEvent.memberJoined(familyId, userId));
+            }
+            return toResponse(family, List.of(role));
+        } finally {
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+        }
     }
 
     public FamilyResponse getFamily(Long userId, Long familyId) {
@@ -154,28 +179,43 @@ public class FamilyService {
 
     @Transactional(rollbackFor = Exception.class)
     public JoinRequestResponse applyToJoin(Long userId, Long familyId, ApplyJoinRequest req) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("用户不存在"));
-        if (user.getFamilyId() != null) {
-            throw new BadRequestException("您已属于一个家庭");
+        RLock lock = redissonClient.getLock("lock:family:user:" + userId);
+        try {
+            if (!lock.tryLock(0, 10, TimeUnit.SECONDS)) {
+                throw new BadRequestException("操作正在处理中，请勿重复提交");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BadRequestException("操作被中断");
         }
-        Family family = familyRepository.findById(familyId)
-                .orElseThrow(() -> new NotFoundException("家庭不存在"));
-        if (familyJoinRequestRepository.findByFamilyIdAndUserIdAndStatus(familyId, userId, STATUS_PENDING).isPresent()) {
-            throw new BadRequestException("您已提交过申请，请等待审批");
+        try {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new NotFoundException("用户不存在"));
+            if (user.getFamilyId() != null) {
+                throw new BadRequestException("您已属于一个家庭");
+            }
+            Family family = familyRepository.findById(familyId)
+                    .orElseThrow(() -> new NotFoundException("家庭不存在"));
+            if (familyJoinRequestRepository.findByFamilyIdAndUserIdAndStatus(familyId, userId, STATUS_PENDING).isPresent()) {
+                throw new BadRequestException("您已提交过申请，请等待审批");
+            }
+
+            FamilyJoinRequest jr = new FamilyJoinRequest();
+            jr.setId(JOIN_REQ_ID_GEN.nextId());
+            jr.setFamilyId(familyId);
+            jr.setUserId(userId);
+            jr.setRequestType(REQ_TYPE_APPLY);
+            jr.setStatus(STATUS_PENDING);
+            jr.setInitiatedBy(userId);
+            jr.setRole(normalizeRole(req.getRole()));
+            familyJoinRequestRepository.save(jr);
+
+            return toJoinRequestResponse(jr, family, user, user);
+        } finally {
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
         }
-
-        FamilyJoinRequest jr = new FamilyJoinRequest();
-        jr.setId(JOIN_REQ_ID_GEN.nextId());
-        jr.setFamilyId(familyId);
-        jr.setUserId(userId);
-        jr.setRequestType(REQ_TYPE_APPLY);
-        jr.setStatus(STATUS_PENDING);
-        jr.setInitiatedBy(userId);
-        jr.setRole(normalizeRole(req.getRole()));
-        familyJoinRequestRepository.save(jr);
-
-        return toJoinRequestResponse(jr, family, user, user);
     }
 
     // ======================== 管理员邀请 ========================
@@ -235,22 +275,37 @@ public class FamilyService {
             throw new BadRequestException("请求已被处理");
         }
 
-        User user = userRepository.findById(jr.getUserId())
-                .orElseThrow(() -> new NotFoundException("用户不存在"));
-        if (user.getFamilyId() != null) {
-            jr.setStatus(STATUS_REJECTED);
+        RLock lock = redissonClient.getLock("lock:family:user:" + jr.getUserId());
+        try {
+            if (!lock.tryLock(0, 10, TimeUnit.SECONDS)) {
+                throw new BadRequestException("该用户有操作正在处理中，请稍后重试");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BadRequestException("操作被中断");
+        }
+        try {
+            User user = userRepository.findById(jr.getUserId())
+                    .orElseThrow(() -> new NotFoundException("用户不存在"));
+            if (user.getFamilyId() != null) {
+                jr.setStatus(STATUS_REJECTED);
+                jr.setHandledBy(adminUserId);
+                jr.setHandledAt(LocalDateTime.now());
+                familyJoinRequestRepository.save(jr);
+                throw new BadRequestException("该用户已属于其他家庭");
+            }
+
+            addMemberToFamily(jr.getUserId(), familyId, jr.getRole());
+
+            jr.setStatus(STATUS_APPROVED);
             jr.setHandledBy(adminUserId);
             jr.setHandledAt(LocalDateTime.now());
             familyJoinRequestRepository.save(jr);
-            throw new BadRequestException("该用户已属于其他家庭");
+        } finally {
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
         }
-
-        addMemberToFamily(jr.getUserId(), familyId, jr.getRole());
-
-        jr.setStatus(STATUS_APPROVED);
-        jr.setHandledBy(adminUserId);
-        jr.setHandledAt(LocalDateTime.now());
-        familyJoinRequestRepository.save(jr);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -270,6 +325,19 @@ public class FamilyService {
         familyJoinRequestRepository.save(jr);
     }
 
+    // ======================== 用户查看自己的申请 ========================
+
+    public List<JoinRequestResponse> getMyApplications(Long userId) {
+        List<FamilyJoinRequest> applications = familyJoinRequestRepository
+                .findByUserIdAndRequestTypeOrderByCreatedAtDesc(userId, REQ_TYPE_APPLY);
+        return applications.stream().map(jr -> {
+            Family family = familyRepository.findById(jr.getFamilyId()).orElse(null);
+            User user = userRepository.findById(jr.getUserId()).orElse(null);
+            User initiator = userRepository.findById(jr.getInitiatedBy()).orElse(null);
+            return toJoinRequestResponse(jr, family, user, initiator);
+        }).toList();
+    }
+
     // ======================== 用户查看/处理邀请 ========================
 
     public List<JoinRequestResponse> getMyInvitations(Long userId) {
@@ -285,26 +353,41 @@ public class FamilyService {
 
     @Transactional(rollbackFor = Exception.class)
     public void acceptInvitation(Long userId, Long requestId) {
-        FamilyJoinRequest jr = familyJoinRequestRepository.findById(requestId)
-                .orElseThrow(() -> new NotFoundException("邀请不存在"));
-        if (!jr.getUserId().equals(userId)) {
-            throw new ForbiddenException("无权操作此邀请");
+        RLock lock = redissonClient.getLock("lock:family:user:" + userId);
+        try {
+            if (!lock.tryLock(0, 10, TimeUnit.SECONDS)) {
+                throw new BadRequestException("操作正在处理中，请勿重复提交");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BadRequestException("操作被中断");
         }
-        if (!STATUS_PENDING.equals(jr.getStatus())) {
-            throw new BadRequestException("邀请已被处理");
-        }
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("用户不存在"));
-        if (user.getFamilyId() != null) {
-            throw new BadRequestException("您已属于一个家庭");
-        }
+        try {
+            FamilyJoinRequest jr = familyJoinRequestRepository.findById(requestId)
+                    .orElseThrow(() -> new NotFoundException("邀请不存在"));
+            if (!jr.getUserId().equals(userId)) {
+                throw new ForbiddenException("无权操作此邀请");
+            }
+            if (!STATUS_PENDING.equals(jr.getStatus())) {
+                throw new BadRequestException("邀请已被处理");
+            }
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new NotFoundException("用户不存在"));
+            if (user.getFamilyId() != null) {
+                throw new BadRequestException("您已属于一个家庭");
+            }
 
-        addMemberToFamily(userId, jr.getFamilyId(), jr.getRole());
+            addMemberToFamily(userId, jr.getFamilyId(), jr.getRole());
 
-        jr.setStatus(STATUS_APPROVED);
-        jr.setHandledBy(userId);
-        jr.setHandledAt(LocalDateTime.now());
-        familyJoinRequestRepository.save(jr);
+            jr.setStatus(STATUS_APPROVED);
+            jr.setHandledBy(userId);
+            jr.setHandledAt(LocalDateTime.now());
+            familyJoinRequestRepository.save(jr);
+        } finally {
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -344,6 +427,9 @@ public class FamilyService {
             FamilyAdminChecker.removeAdmin(redissonClient, familyId, targetUserId);
         }
         invalidateCaches(familyId, null);
+        if (familyEventProducer != null) {
+            familyEventProducer.publish(FamilyDomainEvent.adminChanged(familyId, targetUserId));
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -359,7 +445,9 @@ public class FamilyService {
         }
         familyMemberRoleRepository.deleteByUserIdAndFamilyId(targetUserId, familyId);
         FamilyAdminChecker.removeAdmin(redissonClient, familyId, targetUserId);
-
+        if (familyEventProducer != null) {
+            familyEventProducer.publish(FamilyDomainEvent.memberRemoved(familyId, targetUserId));
+        }
         User user = userRepository.findById(targetUserId).orElse(null);
         if (user != null && familyId.equals(user.getFamilyId())) {
             user.setFamilyId(null);
@@ -388,6 +476,9 @@ public class FamilyService {
             userCacheService.invalidate(newUser.getId());
         }
         invalidateCaches(familyId, null);
+        if (familyEventProducer != null) {
+            familyEventProducer.publish(FamilyDomainEvent.memberJoined(familyId, newUser.getId()));
+        }
         return loadFamilyFromDb(familyId);
     }
 
@@ -414,6 +505,9 @@ public class FamilyService {
             userCacheService.invalidate(userId);
         }
         invalidateCaches(familyId, null);
+        if (familyEventProducer != null) {
+            familyEventProducer.publish(FamilyDomainEvent.memberJoined(familyId, userId));
+        }
     }
 
     private void requireAdmin(Long userId, Long familyId) {

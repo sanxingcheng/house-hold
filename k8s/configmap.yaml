@@ -1,0 +1,18 @@
+# 各服务通过环境变量引用，按实际部署修改 Nacos/Redis/MySQL/Kafka 地址
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: house-hold-config
+  namespace: house-hold
+data:
+  # Nacos 服务发现与配置中心（集群内服务名或外部地址）
+  NACOS_SERVER: "nacos:8848"
+  # Redis（集群内服务名或外部地址）
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  # MySQL：auth 与 wealth 使用独立库，见各 Deployment 的 env
+  MYSQL_AUTH_URL: "jdbc:mysql://mysql:3306/household_auth?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai"
+  MYSQL_WEALTH_URL: "jdbc:mysql://mysql:3306/household_wealth?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai"
+  MYSQL_USER: "root"
+  # Kafka（可选，不配置则 auth-user 不发送事件）
+  KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"

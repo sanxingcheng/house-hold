@@ -5,6 +5,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Data;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -36,12 +38,13 @@ public class FamilyJoinRequest {
     @Column(name = "handled_by")
     private Long handledBy;
 
+    @UpdateTimestamp
     @Column(name = "handled_at")
     private LocalDateTime handledAt;
 
     @Column(nullable = false, length = 32)
     private String role = "OTHER";
-
-    @Column(name = "created_at", insertable = false, updatable = false)
+    @CreationTimestamp
+    @Column(name = "created_at",  updatable = false)
     private LocalDateTime createdAt;
 }

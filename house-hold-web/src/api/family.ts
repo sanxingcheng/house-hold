@@ -25,6 +25,10 @@ export function applyToJoinFamily(familyId: string, data: ApplyJoinRequest) {
   return request.post<JoinRequestResponse>(`/family/${familyId}/apply`, data)
 }
 
+export function getMyApplications() {
+  return request.get<JoinRequestResponse[]>('/family/my-applications')
+}
+
 export function getMyInvitations() {
   return request.get<JoinRequestResponse[]>('/family/my-invitations')
 }

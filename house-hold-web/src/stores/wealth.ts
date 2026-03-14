@@ -5,6 +5,7 @@ import {
   getUserSummary, getFamilySummary, getUserHistory, getFamilyHistory,
   getFamilyAssets, createFamilyAsset, updateFamilyAsset, deleteFamilyAsset,
   getMemberAccounts, createMemberAccount, updateMemberAccount, deleteMemberAccount,
+  getFamilyAccounts,
 } from '@/api/wealth'
 import type {
   Account, AccountCreateRequest, AccountUpdateRequest,
@@ -20,6 +21,7 @@ export const useWealthStore = defineStore('wealth', () => {
   const familyHistory = ref<SnapshotPoint[]>([])
   const familyAssets = ref<FamilyAsset[]>([])
   const memberAccounts = ref<Account[]>([])
+  const familyAccounts = ref<Account[]>([])
 
   async function fetchAccounts() {
     const { data } = await getAccounts()
@@ -126,6 +128,13 @@ export const useWealthStore = defineStore('wealth', () => {
     await fetchMemberAccounts(targetUserId)
   }
 
+  // Admin: family-level accounts
+  async function fetchFamilyAccounts() {
+    const { data } = await getFamilyAccounts()
+    familyAccounts.value = data
+    return data
+  }
+
   function clear() {
     accounts.value = []
     userSummary.value = null
@@ -134,15 +143,17 @@ export const useWealthStore = defineStore('wealth', () => {
     familyHistory.value = []
     familyAssets.value = []
     memberAccounts.value = []
+    familyAccounts.value = []
   }
 
   return {
     accounts, userSummary, familySummary, userHistory, familyHistory,
-    familyAssets, memberAccounts,
+    familyAssets, memberAccounts, familyAccounts,
     fetchAccounts, addAccount, editAccount, removeAccount,
     fetchUserSummary, fetchFamilySummary, fetchUserHistory, fetchFamilyHistory,
     fetchFamilyAssets, addFamilyAsset, editFamilyAsset, removeFamilyAsset,
     fetchMemberAccounts, addMemberAccount, editMemberAccount, removeMemberAccount,
+    fetchFamilyAccounts,
     clear,
   }
 })

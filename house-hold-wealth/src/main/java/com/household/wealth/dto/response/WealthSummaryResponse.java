@@ -14,4 +14,12 @@ public class WealthSummaryResponse {
     private Long totalLiabilities;
     private Long netWorth;
     private String snapshotTime;
+    /** 家庭共有资产总额（仅 ownerType=FAMILY 时有值） */
+    private Long familyAssetTotal;
+
+    public WealthSummaryResponse(String ownerId, String ownerType,
+                                 Long totalAssets, Long totalLiabilities, Long netWorth,
+                                 String snapshotTime) {
+        this(ownerId, ownerType, totalAssets, totalLiabilities, netWorth, snapshotTime, null);
+    }
 }

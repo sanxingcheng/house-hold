@@ -1,8 +1,13 @@
+mode:
+  type: Standalone
+  repository:
+    type: JDBC
+
 dataSources:
   ds0:
     dataSourceClassName: com.zaxxer.hikari.HikariDataSource
     driverClassName: com.mysql.cj.jdbc.Driver
-    jdbcUrl: jdbc:mysql://127.0.0.1:3306/household?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    jdbcUrl: jdbc:mysql://127.0.0.1:3306/household_wealth?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: root
     password: Admin@123
 
@@ -20,6 +25,10 @@ rules:
         type: INLINE
         props:
           algorithm-expression: account_$->{user_id % 4}
+  - !SINGLE
+    tables:
+      - "ds0.*"
+    defaultDataSource: ds0
 
 props:
   sql-show: false

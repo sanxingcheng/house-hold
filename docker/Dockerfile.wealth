@@ -1,0 +1,18 @@
+# 构建阶段：在项目根目录下执行 docker build -f docker/Dockerfile.wealth -t house-hold-wealth:latest .
+FROM maven:3.9-eclipse-temurin-21-alpine AS build
+WORKDIR /build
+
+COPY pom.xml .
+COPY house-hold-common house-hold-common
+COPY house-hold-wealth house-hold-wealth
+
+RUN mvn -q -pl house-hold-wealth -am -DskipTests package -B && \
+    cp house-hold-wealth/target/house-hold-wealth-*.jar /app.jar
+
+FROM eclipse-temurin:21-jre-alpine
+RUN apk add --no-cache dumb-init
+WORKDIR /app
+COPY --from=build /app.jar app.jar
+EXPOSE 8082
+USER 1000:1000
+ENTRYPOINT ["dumb-init", "java", "-jar", "app.jar"]

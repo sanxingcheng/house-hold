@@ -16,6 +16,12 @@
           <el-form-item label="姓名">
             <el-input v-model="form.name" placeholder="选填" />
           </el-form-item>
+          <el-form-item label="性别">
+            <el-radio-group v-model="form.gender">
+              <el-radio value="MALE">男</el-radio>
+              <el-radio value="FEMALE">女</el-radio>
+            </el-radio-group>
+          </el-form-item>
           <el-form-item label="生日">
             <el-date-picker v-model="form.birthday" type="date" placeholder="选择日期" value-format="YYYY-MM-DD" style="width:100%" />
           </el-form-item>
@@ -55,6 +61,7 @@ const pageLoading = ref(false)
 
 const form = reactive<UserProfileUpdateRequest>({
   name: '',
+  gender: '',
   birthday: '',
   email: '',
   phone: '',
@@ -68,6 +75,7 @@ async function load() {
     const { data } = await getProfile()
     profile.value = data
     form.name = data.name ?? ''
+    form.gender = data.gender ?? ''
     form.birthday = data.birthday ?? ''
     form.email = data.email ?? ''
     form.phone = data.phone ?? ''

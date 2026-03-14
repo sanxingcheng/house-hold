@@ -15,6 +15,7 @@ export interface Account {
   balance: number
   currency: string
   createdAt?: string
+  updatedAt?: string
 }
 
 export interface AccountCreateRequest {
@@ -38,6 +39,8 @@ export interface WealthSummary {
   totalLiabilities: number
   netWorth: number
   snapshotTime: string
+  /** 家庭共有资产总额（仅 ownerType=FAMILY 时有值） */
+  familyAssetTotal?: number
 }
 
 export interface SnapshotPoint {
@@ -62,6 +65,12 @@ export interface FamilyAsset {
   remark?: string
   createdBy: string
   createdAt?: string
+  /** 贷款总额（分），主要用于房贷/车贷 */
+  loanTotal?: number
+  /** 当前贷款余额（分），计入负债 */
+  loanRemaining?: number
+  /** 是否只统计负债，不计入资产总额 */
+  loanOnly?: boolean
 }
 
 export interface FamilyAssetCreateRequest {
@@ -70,6 +79,9 @@ export interface FamilyAssetCreateRequest {
   amount: number
   currency?: string
   remark?: string
+  loanTotal?: number
+  loanRemaining?: number
+  loanOnly?: boolean
 }
 
 export interface FamilyAssetUpdateRequest {
@@ -78,4 +90,7 @@ export interface FamilyAssetUpdateRequest {
   amount?: number
   currency?: string
   remark?: string
+  loanTotal?: number
+  loanRemaining?: number
+  loanOnly?: boolean
 }

@@ -1,0 +1,12 @@
+# 构建上下文为项目根目录时忽略，加快镜像构建
+.git
+.gitignore
+*.md
+target
+house-hold-web/node_modules
+house-hold-web/dist
+house-hold-web/.env*
+**/target
+**/.idea
+**/.vscode
+**/*.iml

@@ -29,6 +29,16 @@ public class AccountController {
         return ResponseEntity.ok(accountService.getAccounts(userId));
     }
 
+    /**
+     * 户主/管理员：按家庭查看所有成员账户列表。
+     */
+    @GetMapping("/family")
+    public ResponseEntity<List<AccountResponse>> listFamilyAccounts(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-Family-Id") Long familyId) {
+        return ResponseEntity.ok(accountService.getFamilyAccounts(userId, familyId));
+    }
+
     @PostMapping
     public ResponseEntity<AccountResponse> create(
             @RequestHeader("X-User-Id") Long userId,

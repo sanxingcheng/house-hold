@@ -13,13 +13,19 @@
                   <el-input v-model="createForm.nameAlias" placeholder="如：我家" />
                 </el-form-item>
                 <el-form-item label="国家" prop="country">
-                  <el-input v-model="createForm.country" />
+                  <el-select v-model="createForm.country" placeholder="请选择国家" style="width:100%" filterable>
+                    <el-option v-for="c in COUNTRY_OPTIONS" :key="c.value" :label="c.label" :value="c.value" />
+                  </el-select>
                 </el-form-item>
                 <el-form-item label="省份" prop="province">
-                  <el-input v-model="createForm.province" />
+                  <el-select v-model="createForm.province" placeholder="请选择省份" style="width:100%" filterable :disabled="!createForm.country">
+                    <el-option v-for="p in createProvinceOptions" :key="p.value" :label="p.label" :value="p.value" />
+                  </el-select>
                 </el-form-item>
                 <el-form-item label="城市" prop="city">
-                  <el-input v-model="createForm.city" />
+                  <el-select v-model="createForm.city" placeholder="请选择城市" style="width:100%" filterable :disabled="!createForm.province">
+                    <el-option v-for="ct in createCityOptions" :key="ct.value" :label="ct.label" :value="ct.value" />
+                  </el-select>
                 </el-form-item>
                 <el-form-item label="街道" prop="street">
                   <el-input v-model="createForm.street" />
@@ -33,7 +39,7 @@
                   </el-select>
                 </el-form-item>
                 <el-form-item>
-                  <el-button type="primary" native-type="submit">创建</el-button>
+                  <el-button type="primary" native-type="submit" :loading="creating">创建</el-button>
                 </el-form-item>
               </el-form>
             </el-tab-pane>
@@ -52,7 +58,7 @@
                   </el-select>
                 </el-form-item>
                 <el-form-item>
-                  <el-button type="primary" native-type="submit">提交申请</el-button>
+                  <el-button type="primary" native-type="submit" :loading="applying">提交申请</el-button>
                 </el-form-item>
               </el-form>
             </el-tab-pane>
@@ -60,7 +66,7 @@
         </el-card>
 
         <!-- 收到的邀请 -->
-        <el-card v-if="familyStore.myInvitations.length > 0" shadow="never">
+        <el-card v-if="familyStore.myInvitations.length > 0" shadow="never" style="margin-bottom:16px">
           <template #header><span style="font-weight:600">收到的邀请</span></template>
           <el-table :data="familyStore.myInvitations" stripe>
             <el-table-column prop="familyName" label="家庭名称" />
@@ -68,8 +74,25 @@
             <el-table-column label="角色"><template #default="{ row }">{{ roleLabel(row.role) }}</template></el-table-column>
             <el-table-column label="操作" width="160">
               <template #default="{ row }">
-                <el-button size="small" type="primary" @click="onAcceptInvite(row.id)">接受</el-button>
-                <el-button size="small" @click="onRejectInvite(row.id)">拒绝</el-button>
+                <el-button size="small" type="primary" :loading="acceptingId === row.id" :disabled="rejectingId === row.id" @click="onAcceptInvite(row.id)">接受</el-button>
+                <el-button size="small" :loading="rejectingId === row.id" :disabled="acceptingId === row.id" @click="onRejectInvite(row.id)">拒绝</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+
+        <!-- 我的申请进度 -->
+        <el-card v-if="familyStore.myApplications.length > 0" shadow="never">
+          <template #header><span style="font-weight:600">我的申请</span></template>
+          <el-table :data="familyStore.myApplications" stripe>
+            <el-table-column prop="familyName" label="申请家庭" />
+            <el-table-column label="期望角色"><template #default="{ row }">{{ roleLabel(row.role) }}</template></el-table-column>
+            <el-table-column label="申请时间">
+              <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
+            </el-table-column>
+            <el-table-column label="处理状态" width="120">
+              <template #default="{ row }">
+                <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
               </template>
             </el-table-column>
           </el-table>
@@ -83,7 +106,7 @@
           <template #header>
             <div style="display:flex;justify-content:space-between;align-items:center">
               <span style="font-weight:600">家庭信息</span>
-              <el-button v-if="familyStore.isAdmin && !editing" size="small" @click="startEdit">编辑</el-button>
+              <el-button v-if="canManage && !editing" size="small" @click="startEdit">编辑</el-button>
             </div>
           </template>
           <template v-if="!editing">
@@ -95,9 +118,21 @@
           </template>
           <el-form v-else :model="updateForm" label-width="80px" @submit.prevent="onUpdateAddress">
             <el-form-item label="家庭别名"><el-input v-model="updateForm.nameAlias" /></el-form-item>
-            <el-form-item label="国家"><el-input v-model="updateForm.country" /></el-form-item>
-            <el-form-item label="省份"><el-input v-model="updateForm.province" /></el-form-item>
-            <el-form-item label="城市"><el-input v-model="updateForm.city" /></el-form-item>
+            <el-form-item label="国家">
+              <el-select v-model="updateForm.country" placeholder="请选择国家" style="width:100%" filterable>
+                <el-option v-for="c in COUNTRY_OPTIONS" :key="c.value" :label="c.label" :value="c.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="省份">
+              <el-select v-model="updateForm.province" placeholder="请选择省份" style="width:100%" filterable :disabled="!updateForm.country">
+                <el-option v-for="p in updateProvinceOptions" :key="p.value" :label="p.label" :value="p.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="城市">
+              <el-select v-model="updateForm.city" placeholder="请选择城市" style="width:100%" filterable :disabled="!updateForm.province">
+                <el-option v-for="ct in updateCityOptions" :key="ct.value" :label="ct.label" :value="ct.value" />
+              </el-select>
+            </el-form-item>
             <el-form-item label="街道"><el-input v-model="updateForm.street" /></el-form-item>
             <el-form-item>
               <el-button type="primary" native-type="submit">保存</el-button>
@@ -111,7 +146,7 @@
           <template #header>
             <div style="display:flex;justify-content:space-between;align-items:center">
               <span style="font-weight:600">家庭成员</span>
-              <div v-if="familyStore.isAdmin" style="display:flex;gap:8px">
+              <div v-if="canManage" style="display:flex;gap:8px">
                 <el-button size="small" type="primary" @click="showInviteDialog = true">邀请用户</el-button>
                 <el-button size="small" type="success" @click="showCreateMemberDialog = true">新建成员</el-button>
               </div>
@@ -147,7 +182,7 @@
                 <el-tag v-else type="info" size="small">成员</el-tag>
               </template>
             </el-table-column>
-            <el-table-column v-if="familyStore.isCreator || familyStore.isAdmin" label="操作" width="200">
+            <el-table-column v-if="canManage" label="操作" width="200">
               <template #default="{ row }">
                 <template v-if="row.userId !== authStore.user?.id && !row.isCreator">
                   <el-button v-if="familyStore.isCreator && !row.isAdmin" size="small" link type="primary" @click="onSetAdmin(row.userId, true)">设为管理员</el-button>
@@ -163,24 +198,32 @@
           </el-table>
         </el-card>
 
-        <!-- 管理员: 待审批请求 -->
-        <el-card v-if="familyStore.isAdmin && familyStore.pendingRequests.length > 0" shadow="never" style="margin-bottom:16px">
-          <template #header><span style="font-weight:600">待审批请求</span></template>
-          <el-table :data="familyStore.pendingRequests" stripe>
-            <el-table-column prop="username" label="用户名" />
-            <el-table-column label="类型">
-              <template #default="{ row }">{{ row.requestType === 'APPLY' ? '主动申请' : '管理员邀请' }}</template>
-            </el-table-column>
-            <el-table-column label="期望角色">
-              <template #default="{ row }">{{ roleLabel(row.role) }}</template>
-            </el-table-column>
-            <el-table-column label="操作" width="160">
-              <template #default="{ row }">
-                <el-button size="small" type="primary" @click="onApproveRequest(row.id)">通过</el-button>
-                <el-button size="small" @click="onRejectRequestAdmin(row.id)">拒绝</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
+        <!-- 管理员/户主: 待审批请求 -->
+        <el-card v-if="canManage" shadow="never" style="margin-bottom:16px">
+          <template #header>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-weight:600">待审批请求</span>
+              <el-tag v-if="familyStore.pendingRequests.length > 0" type="danger" size="small">{{ familyStore.pendingRequests.length }} 条待处理</el-tag>
+            </div>
+          </template>
+          <template v-if="familyStore.pendingRequests.length > 0">
+            <el-table :data="familyStore.pendingRequests" stripe>
+              <el-table-column prop="username" label="用户名" />
+              <el-table-column label="类型">
+                <template #default="{ row }">{{ row.requestType === 'APPLY' ? '主动申请' : '管理员邀请' }}</template>
+              </el-table-column>
+              <el-table-column label="期望角色">
+                <template #default="{ row }">{{ roleLabel(row.role) }}</template>
+              </el-table-column>
+              <el-table-column label="操作" width="160">
+                <template #default="{ row }">
+                  <el-button size="small" type="primary" @click="onApproveRequest(row.id)">通过</el-button>
+                  <el-button size="small" @click="onRejectRequestAdmin(row.id)">拒绝</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </template>
+          <el-empty v-else description="暂无待审批请求" :image-size="64" />
         </el-card>
       </template>
 
@@ -201,7 +244,7 @@
         </el-form>
         <template #footer>
           <el-button @click="showInviteDialog = false">取消</el-button>
-          <el-button type="primary" @click="onInviteUser">发送邀请</el-button>
+          <el-button type="primary" :loading="inviting" @click="onInviteUser">发送邀请</el-button>
         </template>
       </el-dialog>
 
@@ -216,6 +259,12 @@
           </el-form-item>
           <el-form-item label="姓名" prop="name">
             <el-input v-model="createMemberForm.name" />
+          </el-form-item>
+          <el-form-item label="性别" prop="gender">
+            <el-radio-group v-model="createMemberForm.gender">
+              <el-radio value="MALE">男</el-radio>
+              <el-radio value="FEMALE">女</el-radio>
+            </el-radio-group>
           </el-form-item>
           <el-form-item label="生日" prop="birthday">
             <el-date-picker v-model="createMemberForm.birthday" type="date" value-format="YYYY-MM-DD" style="width:100%" />
@@ -237,7 +286,7 @@
         </el-form>
         <template #footer>
           <el-button @click="showCreateMemberDialog = false">取消</el-button>
-          <el-button type="primary" @click="onCreateMember">创建</el-button>
+          <el-button type="primary" :loading="creatingMember" @click="onCreateMember">创建</el-button>
         </template>
       </el-dialog>
     </div>
@@ -245,7 +294,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
+import { storeToRefs } from 'pinia'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import MainLayout from '@/layouts/MainLayout.vue'
@@ -253,14 +303,22 @@ import { useAuthStore } from '@/stores/auth'
 import { useFamilyStore } from '@/stores/family'
 import { updateMemberRole } from '@/api/family'
 import type { FamilyCreateRequest } from '@/types/family'
+import { COUNTRY_OPTIONS, getProvinces, getCities } from '@/data/region-cn'
 
 const authStore = useAuthStore()
 const familyStore = useFamilyStore()
+const { isAdmin, isCreator } = storeToRefs(familyStore)
 const tab = ref('create')
 const editing = ref(false)
 const pageLoading = ref(false)
 const createFormRef = ref<FormInstance>()
 const createMemberFormRef = ref<FormInstance>()
+const creating = ref(false)
+const applying = ref(false)
+const acceptingId = ref<string | null>(null)
+const rejectingId = ref<string | null>(null)
+const inviting = ref(false)
+const creatingMember = ref(false)
 
 const createForm = reactive<FamilyCreateRequest>({
   nameAlias: '', country: '', province: '', city: '', street: '', role: 'OTHER',
@@ -270,6 +328,19 @@ const updateForm = reactive<FamilyCreateRequest>({
   nameAlias: '', country: '', province: '', city: '', street: '',
 })
 
+const createProvinceOptions = computed(() => getProvinces(createForm.country))
+const createCityOptions = computed(() => getCities(createForm.country, createForm.province))
+const updateProvinceOptions = computed(() => getProvinces(updateForm.country))
+const updateCityOptions = computed(() => getCities(updateForm.country, updateForm.province))
+
+watch(() => createForm.country, () => { createForm.province = ''; createForm.city = '' })
+watch(() => createForm.province, () => { createForm.city = '' })
+const skipUpdateWatch = ref(false)
+watch(() => updateForm.country, () => { if (!skipUpdateWatch.value) { updateForm.province = ''; updateForm.city = '' } })
+watch(() => updateForm.province, () => { if (!skipUpdateWatch.value) { updateForm.city = '' } })
+
+const canManage = computed(() => isAdmin.value || isCreator.value)
+
 const editingRoleUserId = ref<string | null>(null)
 const editingRole = ref('OTHER')
 
@@ -277,15 +348,15 @@ const showInviteDialog = ref(false)
 const inviteForm = reactive({ username: '', role: 'OTHER' })
 const showCreateMemberDialog = ref(false)
 const createMemberForm = reactive({
-  username: '', password: '', name: '', birthday: '',
+  username: '', password: '', name: '', gender: '', birthday: '',
   role: 'OTHER', email: '', phone: '',
 })
 
 const createRules: FormRules = {
   nameAlias: [{ required: true, message: '请输入家庭别名', trigger: 'blur' }],
-  country: [{ required: true, message: '请输入国家', trigger: 'blur' }],
-  province: [{ required: true, message: '请输入省份', trigger: 'blur' }],
-  city: [{ required: true, message: '请输入城市', trigger: 'blur' }],
+  country: [{ required: true, message: '请选择国家', trigger: 'change' }],
+  province: [{ required: true, message: '请选择省份', trigger: 'change' }],
+  city: [{ required: true, message: '请选择城市', trigger: 'change' }],
   street: [{ required: true, message: '请输入街道', trigger: 'blur' }],
 }
 
@@ -293,6 +364,7 @@ const createMemberRules: FormRules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
+  gender: [{ required: true, message: '请选择性别', trigger: 'change' }],
   birthday: [{ required: true, message: '请选择生日', trigger: 'change' }],
 }
 
@@ -303,9 +375,23 @@ function roleTagType(role: string) {
   return map[role] ?? 'info'
 }
 
+const STATUS_MAP: Record<string, string> = { PENDING: '待审批', APPROVED: '已通过', REJECTED: '已拒绝' }
+function statusLabel(status: string) { return STATUS_MAP[status] ?? status }
+function statusTagType(status: string): '' | 'success' | 'danger' | 'warning' {
+  const map: Record<string, '' | 'success' | 'danger' | 'warning'> = { PENDING: 'warning', APPROVED: 'success', REJECTED: 'danger' }
+  return map[status] ?? ''
+}
+
+function formatTime(dt: string) {
+  if (!dt) return '—'
+  return dt.replace('T', ' ').slice(0, 16)
+}
+
 function startEdit() {
   const f = familyStore.family!
+  skipUpdateWatch.value = true
   Object.assign(updateForm, { nameAlias: f.nameAlias, country: f.country, province: f.province, city: f.city, street: f.street })
+  nextTick(() => { skipUpdateWatch.value = false })
   editing.value = true
 }
 
@@ -320,14 +406,17 @@ async function loadFamily() {
     pageLoading.value = true
     try {
       await familyStore.fetchFamily(fid)
-      if (familyStore.isAdmin) {
+      if (isAdmin.value || isCreator.value) {
         await familyStore.fetchPendingRequests(fid)
       }
     } finally {
       pageLoading.value = false
     }
   } else {
-    await familyStore.fetchMyInvitations()
+    await Promise.all([
+      familyStore.fetchMyInvitations(),
+      familyStore.fetchMyApplications(),
+    ])
   }
 }
 
@@ -336,12 +425,16 @@ async function onCreate() {
     const valid = await createFormRef.value.validate().catch(() => false)
     if (!valid) return
   }
+  if (creating.value) return
+  creating.value = true
   try {
     await familyStore.create(createForm)
     Object.assign(createForm, { nameAlias: '', country: '', province: '', city: '', street: '', role: 'OTHER' })
     ElMessage.success('家庭创建成功')
   } catch (e: unknown) {
     ElMessage.error((e as { message?: string })?.message ?? '创建失败')
+  } finally {
+    creating.value = false
   }
 }
 
@@ -350,6 +443,8 @@ async function onApply() {
     ElMessage.warning('请输入家庭 ID')
     return
   }
+  if (applying.value) return
+  applying.value = true
   try {
     await familyStore.applyJoin(applyForm.familyId, { role: applyForm.role })
     applyForm.familyId = ''
@@ -357,25 +452,35 @@ async function onApply() {
     ElMessage.success('申请已提交，请等待管理员审批')
   } catch (e: unknown) {
     ElMessage.error((e as { message?: string })?.message ?? '申请失败')
+  } finally {
+    applying.value = false
   }
 }
 
 async function onAcceptInvite(reqId: string) {
+  if (acceptingId.value) return
+  acceptingId.value = reqId
   try {
     await familyStore.handleAcceptInvitation(reqId)
     ElMessage.success('已接受邀请')
     window.location.reload()
   } catch (e: unknown) {
     ElMessage.error((e as { message?: string })?.message ?? '操作失败')
+  } finally {
+    acceptingId.value = null
   }
 }
 
 async function onRejectInvite(reqId: string) {
+  if (rejectingId.value) return
+  rejectingId.value = reqId
   try {
     await familyStore.handleRejectInvitation(reqId)
     ElMessage.success('已拒绝邀请')
   } catch (e: unknown) {
     ElMessage.error((e as { message?: string })?.message ?? '操作失败')
+  } finally {
+    rejectingId.value = null
   }
 }
 
@@ -408,6 +513,8 @@ async function onInviteUser() {
     ElMessage.warning('请输入用户名')
     return
   }
+  if (inviting.value) return
+  inviting.value = true
   try {
     await familyStore.inviteUser(familyStore.family!.id, { username: inviteForm.username, role: inviteForm.role })
     showInviteDialog.value = false
@@ -416,6 +523,8 @@ async function onInviteUser() {
     ElMessage.success('邀请已发送')
   } catch (e: unknown) {
     ElMessage.error((e as { message?: string })?.message ?? '邀请失败')
+  } finally {
+    inviting.value = false
   }
 }
 
@@ -424,21 +533,26 @@ async function onCreateMember() {
     const valid = await createMemberFormRef.value.validate().catch(() => false)
     if (!valid) return
   }
+  if (creatingMember.value) return
+  creatingMember.value = true
   try {
     await familyStore.createMember(familyStore.family!.id, {
       username: createMemberForm.username,
       password: createMemberForm.password,
       name: createMemberForm.name,
+      gender: createMemberForm.gender,
       birthday: createMemberForm.birthday,
       email: createMemberForm.email || undefined,
       phone: createMemberForm.phone || undefined,
       role: createMemberForm.role,
     })
     showCreateMemberDialog.value = false
-    Object.assign(createMemberForm, { username: '', password: '', name: '', birthday: '', role: 'OTHER', email: '', phone: '' })
+    Object.assign(createMemberForm, { username: '', password: '', name: '', gender: '', birthday: '', role: 'OTHER', email: '', phone: '' })
     ElMessage.success('成员已创建')
   } catch (e: unknown) {
     ElMessage.error((e as { message?: string })?.message ?? '创建失败')
+  } finally {
+    creatingMember.value = false
   }
 }
 

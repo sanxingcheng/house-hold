@@ -15,6 +15,10 @@ public class RegisterRequest {
     @NotBlank(message = "姓名不能为空")
     private String name;
 
+    @NotBlank(message = "性别不能为空")
+    @jakarta.validation.constraints.Pattern(regexp = "^(MALE|FEMALE)$", message = "性别只能为 MALE 或 FEMALE")
+    private String gender;
+
     @NotBlank(message = "密码不能为空")
     @Size(min = 6, message = "密码至少6位")
     private String password;

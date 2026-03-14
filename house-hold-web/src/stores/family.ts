@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, shallowRef } from 'vue'
 import {
   getFamily, createFamily, updateFamily,
-  applyToJoinFamily, getMyInvitations, acceptInvitation, rejectInvitation,
+  applyToJoinFamily, getMyApplications, getMyInvitations, acceptInvitation, rejectInvitation,
   adminCreateMember, adminInviteUser, adminSetAdmin, adminRemoveMember,
   adminGetPendingRequests, adminApproveRequest, adminRejectRequest,
 } from '@/api/family'
@@ -13,22 +13,49 @@ import type {
 import { useAuthStore } from '@/stores/auth'
 
 export const useFamilyStore = defineStore('family', () => {
-  const family = ref<FamilyResponse | null>(null)
-  const members = ref<FamilyResponse['members']>([])
+  const authStore = useAuthStore()
+  const family = shallowRef<FamilyResponse | null>(null)
+  const members = shallowRef<FamilyResponse['members']>([])
   const pendingRequests = ref<JoinRequestResponse[]>([])
   const myInvitations = ref<JoinRequestResponse[]>([])
+  const myApplications = ref<JoinRequestResponse[]>([])
+
+  const currentUserId = computed(() => authStore.user?.id ?? null)
 
   const currentUserMember = computed(() => {
-    const authStore = useAuthStore()
-    return members.value.find(m => m.userId === authStore.user?.id) ?? null
+  const uid = currentUserId.value
+  if (!uid || !members.value.length) return null
+
+   for (const member of members.value) {
+    if (member.userId === uid) {
+      return member
+     }
+   }
+  return null
   })
 
-  const isAdmin = computed(() => currentUserMember.value?.isAdmin ?? false)
-  const isCreator = computed(() => currentUserMember.value?.isCreator ?? false)
+  const isAdmin = computed(() => {
+  const member = currentUserMember.value
+  return member?.isAdmin ?? false
+  })
+
+  const isCreator = computed(() => {
+  const member= currentUserMember.value
+  return member?.isCreator ?? false
+  })
 
   function setFamily(data: FamilyResponse | null) {
     family.value = data
-    members.value = data?.members ?? []
+    if (!data || !data.members) {
+      members.value = []
+      return
+    }
+    // 兼容后端 boolean 字段命名（isAdmin/admin, isCreator/creator）
+    members.value = data.members.map((m: any) => ({
+      ...m,
+      isAdmin: m.isAdmin ?? m.admin ?? false,
+      isCreator: m.isCreator ?? m.creator ?? false,
+    }))
   }
 
   async function fetchFamily(familyId: string) {
@@ -54,6 +81,13 @@ export const useFamilyStore = defineStore('family', () => {
   // Apply to join
   async function applyJoin(familyId: string, payload: ApplyJoinRequest) {
     const { data } = await applyToJoinFamily(familyId, payload)
+    await fetchMyApplications()
+    return data
+  }
+
+  async function fetchMyApplications() {
+    const { data } = await getMyApplications()
+    myApplications.value = data
     return data
   }
 
@@ -115,13 +149,14 @@ export const useFamilyStore = defineStore('family', () => {
     members.value = []
     pendingRequests.value = []
     myInvitations.value = []
+    myApplications.value = []
   }
 
   return {
-    family, members, pendingRequests, myInvitations,
+    family, members, pendingRequests, myInvitations, myApplications,
     currentUserMember, isAdmin, isCreator,
     setFamily, fetchFamily, create, updateAddress,
-    applyJoin, fetchMyInvitations, handleAcceptInvitation, handleRejectInvitation,
+    applyJoin, fetchMyApplications, fetchMyInvitations, handleAcceptInvitation, handleRejectInvitation,
     createMember, inviteUser, setAdminStatus, removeMember,
     fetchPendingRequests, approveRequest, rejectRequest,
     clear,

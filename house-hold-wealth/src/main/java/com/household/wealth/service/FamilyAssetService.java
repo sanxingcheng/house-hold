@@ -2,15 +2,16 @@ package com.household.wealth.service;
 
 import com.household.common.exception.ForbiddenException;
 import com.household.common.exception.NotFoundException;
-import com.household.common.util.FamilyAdminChecker;
 import com.household.common.util.SnowflakeIdGenerator;
+import com.household.wealth.cache.SummaryCacheService;
+import com.household.wealth.client.AuthUserClient;
 import com.household.wealth.dto.request.FamilyAssetCreateRequest;
 import com.household.wealth.dto.request.FamilyAssetUpdateRequest;
 import com.household.wealth.dto.response.FamilyAssetResponse;
 import com.household.wealth.entity.FamilyAsset;
 import com.household.wealth.repository.FamilyAssetRepository;
 import lombok.RequiredArgsConstructor;
-import org.redisson.api.RedissonClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,7 +22,10 @@ import java.util.List;
 public class FamilyAssetService {
 
     private final FamilyAssetRepository familyAssetRepository;
-    private final RedissonClient redissonClient;
+    private final AuthUserClient authUserClient;
+
+    @Autowired(required = false)
+    private SummaryCacheService summaryCacheService;
 
     private static final SnowflakeIdGenerator ID_GEN = new SnowflakeIdGenerator(2, 3);
 
@@ -41,8 +45,18 @@ public class FamilyAssetService {
         asset.setAmount(req.getAmount());
         asset.setCurrency(req.getCurrency() != null ? req.getCurrency() : "CNY");
         asset.setRemark(req.getRemark());
+        if (req.getLoanTotal() != null) {
+            asset.setLoanTotal(req.getLoanTotal());
+        }
+        if (req.getLoanRemaining() != null) {
+            asset.setLoanRemaining(req.getLoanRemaining());
+        }
+        if (req.getLoanOnly() != null) {
+            asset.setLoanOnly(req.getLoanOnly());
+        }
         asset.setCreatedBy(userId);
         familyAssetRepository.save(asset);
+        invalidateFamilySummaryCache(familyId);
         return toResponse(asset);
     }
 
@@ -59,7 +73,11 @@ public class FamilyAssetService {
         if (req.getAmount() != null) asset.setAmount(req.getAmount());
         if (req.getCurrency() != null) asset.setCurrency(req.getCurrency());
         if (req.getRemark() != null) asset.setRemark(req.getRemark());
+        if (req.getLoanTotal() != null) asset.setLoanTotal(req.getLoanTotal());
+        if (req.getLoanRemaining() != null) asset.setLoanRemaining(req.getLoanRemaining());
+        if (req.getLoanOnly() != null) asset.setLoanOnly(req.getLoanOnly());
         familyAssetRepository.save(asset);
+        invalidateFamilySummaryCache(familyId);
         return toResponse(asset);
     }
 
@@ -72,11 +90,24 @@ public class FamilyAssetService {
             throw new ForbiddenException("资产不属于该家庭");
         }
         familyAssetRepository.delete(asset);
+        invalidateFamilySummaryCache(familyId);
+    }
+
+    private void invalidateFamilySummaryCache(Long familyId) {
+        if (summaryCacheService != null) {
+            summaryCacheService.invalidateFamily(familyId);
+        }
     }
 
     private void requireAdmin(Long userId, Long familyId) {
-        if (!FamilyAdminChecker.isAdmin(redissonClient, familyId, userId)) {
-            throw new ForbiddenException("需要家庭管理员权限");
+        try {
+            Boolean admin = authUserClient.checkFamilyAdmin(familyId, userId).get("admin");
+            if (!Boolean.TRUE.equals(admin)) {
+                throw new ForbiddenException("需要家庭管理员权限");
+            }
+        } catch (Exception e) {
+            if (e instanceof ForbiddenException) throw e;
+            throw new ForbiddenException("无法验证管理员权限");
         }
     }
 
@@ -90,7 +121,10 @@ public class FamilyAssetService {
                 a.getCurrency(),
                 a.getRemark(),
                 String.valueOf(a.getCreatedBy()),
-                a.getCreatedAt() != null ? a.getCreatedAt().toString() : null
+                a.getCreatedAt() != null ? a.getCreatedAt().toString() : null,
+                a.getLoanTotal(),
+                a.getLoanRemaining(),
+                a.getLoanOnly()
         );
     }
 }

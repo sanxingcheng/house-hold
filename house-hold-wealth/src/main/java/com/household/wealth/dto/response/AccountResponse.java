@@ -15,4 +15,5 @@ public class AccountResponse {
     private Long balance;
     private String currency;
     private String createdAt;
+    private String updatedAt;
 }

@@ -17,4 +17,7 @@ public class FamilyAssetResponse {
     private String remark;
     private String createdBy;
     private String createdAt;
+    private Long loanTotal;
+    private Long loanRemaining;
+    private Boolean loanOnly;
 }

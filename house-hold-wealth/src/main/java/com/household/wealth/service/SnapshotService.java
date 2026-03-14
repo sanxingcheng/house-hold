@@ -3,7 +3,9 @@ package com.household.wealth.service;
 import com.household.wealth.cache.SummaryCacheService;
 import com.household.wealth.dto.response.SnapshotPointResponse;
 import com.household.wealth.entity.Account;
+import com.household.wealth.entity.FamilyAsset;
 import com.household.wealth.repository.AccountRepository;
+import com.household.wealth.repository.FamilyAssetRepository;
 import com.household.wealth.repository.WealthSnapshotRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +28,7 @@ import java.util.List;
 public class SnapshotService {
 
     private final AccountRepository accountRepository;
+    private final FamilyAssetRepository familyAssetRepository;
     private final WealthSnapshotRepository snapshotRepository;
 
     @Autowired(required = false)
@@ -59,12 +62,25 @@ public class SnapshotService {
 
         if (familyId != null) {
             List<Account> familyAccounts = accountRepository.findByFamilyId(familyId);
-            long famAssets = familyAccounts.stream()
+            long famAccountAssets = familyAccounts.stream()
                     .filter(a -> !CREDIT_CARD.equals(a.getAccountType()))
                     .mapToLong(Account::getBalance).sum();
-            long famLiabilities = familyAccounts.stream()
+            long famLiabilitiesFromAccounts = familyAccounts.stream()
                     .filter(a -> CREDIT_CARD.equals(a.getAccountType()))
                     .mapToLong(Account::getBalance).sum();
+
+            List<FamilyAsset> assets = familyAssetRepository.findByFamilyIdOrderByCreatedAtDesc(familyId);
+            long famSharedAssets = assets.stream()
+                    .filter(a -> !Boolean.TRUE.equals(a.getLoanOnly()))
+                    .mapToLong(FamilyAsset::getAmount)
+                    .sum();
+            long famLoanLiabilities = assets.stream()
+                    .filter(a -> "REAL_ESTATE".equals(a.getAssetType()) || "VEHICLE".equals(a.getAssetType()))
+                    .mapToLong(FamilyAsset::getLoanRemaining)
+                    .sum();
+
+            long famAssets = famAccountAssets + famSharedAssets;
+            long famLiabilities = famLiabilitiesFromAccounts + famLoanLiabilities;
             long famNetWorth = famAssets - famLiabilities;
 
             snapshotRepository.upsertSnapshot(

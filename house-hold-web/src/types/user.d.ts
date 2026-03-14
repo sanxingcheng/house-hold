@@ -2,6 +2,7 @@ export interface UserProfile {
   id: string
   username: string
   name?: string
+  gender?: string
   birthday?: string
   email?: string
   phone?: string
@@ -10,6 +11,7 @@ export interface UserProfile {
 
 export interface UserProfileUpdateRequest {
   name?: string
+  gender?: string
   birthday?: string
   email?: string
   phone?: string

@@ -24,7 +24,7 @@ public class Account {
     @Id
     private Long id;
 
-    @Column(name = "user_id", nullable = false)
+    @Column(name = "user_id", nullable = false, updatable = false)
     private Long userId;
 
     @Column(name = "family_id")

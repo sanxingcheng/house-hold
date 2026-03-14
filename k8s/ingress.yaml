@@ -1,0 +1,52 @@
+# 需集群已安装 Ingress Controller（如 nginx-ingress）。按需修改 host 与 TLS
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: house-hold-ingress
+  namespace: house-hold
+  annotations: {}
+  # 前端与网关同域，前端请求 /auth、/family、/wealth 等由 Ingress 转至 gateway
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: house-hold.local   # 本地测试可配 hosts 或改用 NodePort/LoadBalancer
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: house-hold-web
+                port:
+                  number: 80
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: house-hold-gateway
+                port:
+                  number: 8080
+          - path: /user
+            pathType: Prefix
+            backend:
+              service:
+                name: house-hold-gateway
+                port:
+                  number: 8080
+          - path: /family
+            pathType: Prefix
+            backend:
+              service:
+                name: house-hold-gateway
+                port:
+                  number: 8080
+          - path: /wealth
+            pathType: Prefix
+            backend:
+              service:
+                name: house-hold-gateway
+                port:
+                  number: 8080
+  # tls:
+  #   - hosts: [house-hold.local]
+  #     secretName: house-hold-tls

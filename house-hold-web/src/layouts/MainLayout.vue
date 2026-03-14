@@ -16,15 +16,13 @@
         <el-menu-item index="/dashboard">
           <el-icon><DataLine /></el-icon>概览
         </el-menu-item>
-        <el-menu-item index="/profile">
-          <el-icon><User /></el-icon>个人信息
-        </el-menu-item>
         <el-sub-menu index="/family">
           <template #title>
             <el-icon><House /></el-icon>家庭
           </template>
           <el-menu-item index="/family">家庭管理</el-menu-item>
           <el-menu-item index="/family/assets">共有资产</el-menu-item>
+          <el-menu-item index="/family/accounts">成员账户</el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="/wealth">
           <template #title>
@@ -44,7 +42,10 @@
           </span>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="logout">
+              <el-dropdown-item command="profile">
+                <el-icon><User /></el-icon>个人信息
+              </el-dropdown-item>
+              <el-dropdown-item divided command="logout">
                 <el-icon><SwitchButton /></el-icon>退出登录
               </el-dropdown-item>
             </el-dropdown-menu>
@@ -61,7 +62,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import {
@@ -72,11 +73,14 @@ import {
 const authStore = useAuthStore()
 const { user } = storeToRefs(authStore)
 const route = useRoute()
+const router = useRouter()
 
 const activeRoute = computed(() => route.path)
 
 function handleCommand(command: string) {
-  if (command === 'logout') {
+  if (command === 'profile') {
+    router.push('/profile')
+  } else if (command === 'logout') {
     authStore.logout()
   }
 }

@@ -53,6 +53,7 @@ export interface CreateMemberRequest {
   username: string
   password: string
   name: string
+  gender: string
   birthday: string
   email?: string
   phone?: string

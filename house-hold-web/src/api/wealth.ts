@@ -54,6 +54,11 @@ export function deleteFamilyAsset(id: string) {
   return request.delete(`/wealth/family-assets/${id}`)
 }
 
+// Family-level member accounts (for owner/admin)
+export function getFamilyAccounts() {
+  return request.get<Account[]>('/wealth/accounts/family')
+}
+
 // Admin: manage member accounts
 export function getMemberAccounts(targetUserId: string) {
   return request.get<Account[]>(`/wealth/accounts/member/${targetUserId}`)

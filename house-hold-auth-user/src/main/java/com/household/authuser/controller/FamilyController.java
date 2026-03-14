@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/family")
@@ -17,6 +18,14 @@ import java.util.List;
 public class FamilyController {
 
     private final FamilyService familyService;
+
+    /** 供 wealth 等微服务通过 REST 同步校验当前用户是否为家庭管理员 */
+    @GetMapping("/{familyId}/admin/check")
+    public ResponseEntity<Map<String, Boolean>> checkAdmin(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long familyId) {
+        return ResponseEntity.ok(Map.of("admin", familyService.isAdmin(userId, familyId)));
+    }
 
     @PostMapping("/create")
     public ResponseEntity<FamilyResponse> create(
@@ -55,6 +64,12 @@ public class FamilyController {
             @RequestBody(required = false) ApplyJoinRequest request) {
         if (request == null) request = new ApplyJoinRequest();
         return ResponseEntity.ok(familyService.applyToJoin(userId, familyId, request));
+    }
+
+    @GetMapping("/my-applications")
+    public ResponseEntity<List<JoinRequestResponse>> getMyApplications(
+            @RequestHeader("X-User-Id") Long userId) {
+        return ResponseEntity.ok(familyService.getMyApplications(userId));
     }
 
     @GetMapping("/my-invitations")

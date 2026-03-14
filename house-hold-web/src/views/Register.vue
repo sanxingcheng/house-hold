@@ -6,6 +6,15 @@
       <el-form-item label="用户名" prop="username">
         <el-input v-model="form.username" placeholder="4-32 个字符" :prefix-icon="User" />
       </el-form-item>
+      <el-form-item label="姓名" prop="name">
+        <el-input v-model="form.name" placeholder="请输入姓名" :prefix-icon="User" />
+      </el-form-item>
+      <el-form-item label="性别" prop="gender">
+        <el-radio-group v-model="form.gender">
+          <el-radio value="MALE">男</el-radio>
+          <el-radio value="FEMALE">女</el-radio>
+        </el-radio-group>
+      </el-form-item>
       <el-form-item label="密码" prop="password">
         <el-input v-model="form.password" type="password" show-password placeholder="至少 6 位" :prefix-icon="Lock" />
       </el-form-item>
@@ -48,6 +57,8 @@ const error = ref('')
 
 const form = reactive({
   username: '',
+  name: '',
+  gender: '',
   password: '',
   confirmPassword: '',
   birthday: '',
@@ -67,6 +78,12 @@ const rules: FormRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
     { min: 4, max: 32, message: '用户名长度为 4-32 个字符', trigger: 'blur' },
+  ],
+  name: [
+    { required: true, message: '请输入姓名', trigger: 'blur' },
+  ],
+  gender: [
+    { required: true, message: '请选择性别', trigger: 'change' },
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -91,6 +108,8 @@ async function onSubmit() {
   try {
     await authStore.register({
       username: form.username.trim(),
+      name: form.name.trim(),
+      gender: form.gender,
       password: form.password,
       birthday: form.birthday,
       email: form.email.trim() || undefined,

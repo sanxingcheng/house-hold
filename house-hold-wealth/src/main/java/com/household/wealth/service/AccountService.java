@@ -3,16 +3,15 @@ package com.household.wealth.service;
 import com.household.common.exception.BadRequestException;
 import com.household.common.exception.ForbiddenException;
 import com.household.common.exception.NotFoundException;
-import com.household.common.util.FamilyAdminChecker;
 import com.household.common.util.SnowflakeIdGenerator;
 import com.household.wealth.cache.AccountCacheService;
+import com.household.wealth.client.AuthUserClient;
 import com.household.wealth.dto.request.AccountCreateRequest;
 import com.household.wealth.dto.request.AccountUpdateRequest;
 import com.household.wealth.dto.response.AccountResponse;
 import com.household.wealth.entity.Account;
 import com.household.wealth.repository.AccountRepository;
 import lombok.RequiredArgsConstructor;
-import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +30,7 @@ public class AccountService {
 
     private final AccountRepository accountRepository;
     private final SnapshotService snapshotService;
-    private final RedissonClient redissonClient;
+    private final AuthUserClient authUserClient;
 
     @Autowired(required = false)
     private AccountCacheService accountCacheService;
@@ -45,6 +44,18 @@ public class AccountService {
                     () -> loadFromDb(userId));
         }
         return loadFromDb(userId);
+    }
+
+    /**
+     * 户主/管理员查看家庭内所有成员的账户列表。
+     */
+    public List<AccountResponse> getFamilyAccounts(Long adminUserId, Long familyId) {
+        requireFamilyAdmin(adminUserId, familyId);
+        if (accountCacheService != null) {
+            return accountCacheService.getAccountList("accounts:family:" + familyId,
+                    () -> loadFamilyFromDb(familyId));
+        }
+        return loadFamilyFromDb(familyId);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -102,6 +113,12 @@ public class AccountService {
 
     private List<AccountResponse> loadFromDb(Long userId) {
         return accountRepository.findByUserId(userId).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    private List<AccountResponse> loadFamilyFromDb(Long familyId) {
+        return accountRepository.findByFamilyId(familyId).stream()
                 .map(this::toResponse)
                 .toList();
     }
@@ -171,8 +188,14 @@ public class AccountService {
     }
 
     private void requireFamilyAdmin(Long userId, Long familyId) {
-        if (!FamilyAdminChecker.isAdmin(redissonClient, familyId, userId)) {
-            throw new ForbiddenException("需要家庭管理员权限");
+        try {
+            Boolean admin = authUserClient.checkFamilyAdmin(familyId, userId).get("admin");
+            if (!Boolean.TRUE.equals(admin)) {
+                throw new ForbiddenException("需要家庭管理员权限");
+            }
+        } catch (Exception e) {
+            if (e instanceof ForbiddenException) throw e;
+            throw new ForbiddenException("无法验证管理员权限");
         }
     }
 
@@ -184,7 +207,8 @@ public class AccountService {
                 a.getAccountType(),
                 a.getBalance(),
                 a.getCurrency(),
-                a.getCreatedAt() != null ? a.getCreatedAt().toString() : null);
+                a.getCreatedAt() != null ? a.getCreatedAt().toString() : null,
+                a.getUpdatedAt() != null ? a.getUpdatedAt().toString() : null);
     }
 
 }

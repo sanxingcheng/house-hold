@@ -10,4 +10,9 @@ public class FamilyAssetUpdateRequest {
     private Long amount;
     private String currency;
     private String remark;
+
+    private Long loanTotal;
+    private Long loanRemaining;
+
+    private Boolean loanOnly;
 }

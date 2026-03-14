@@ -5,6 +5,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Data;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -32,6 +34,9 @@ public class User {
     @Column(length = 64)
     private String name;
 
+    @Column(length = 8)
+    private String gender;
+
     @Column(nullable = false)
     private LocalDate birthday;
 
@@ -44,11 +49,12 @@ public class User {
     @Column(name = "family_id")
     private Long familyId;
 
-    /** Managed by DB DEFAULT CURRENT_TIMESTAMP — JPA reads only. */
-    @Column(name = "created_at", insertable = false, updatable = false)
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    /** Managed by DB ON UPDATE CURRENT_TIMESTAMP — JPA reads only. */
-    @Column(name = "updated_at", insertable = false, updatable = false)
+    @UpdateTimestamp
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 }

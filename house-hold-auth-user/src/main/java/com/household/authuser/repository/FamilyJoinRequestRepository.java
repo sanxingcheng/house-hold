@@ -16,4 +16,6 @@ public interface FamilyJoinRequestRepository extends JpaRepository<FamilyJoinReq
             Long userId, String requestType, String status);
 
     Optional<FamilyJoinRequest> findByFamilyIdAndUserIdAndStatus(Long familyId, Long userId, String status);
+
+    List<FamilyJoinRequest> findByUserIdAndRequestTypeOrderByCreatedAtDesc(Long userId, String requestType);
 }

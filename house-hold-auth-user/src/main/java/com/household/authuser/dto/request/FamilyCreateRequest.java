@@ -20,6 +20,7 @@ public class FamilyCreateRequest {
     @NotBlank(message = "街道不能为空")
     private String street;
 
-    /** 创建者的家庭角色，不填默认 OTHER */
+    /** 创建者的家庭关系角色: HUSBAND / WIFE / CHILD / OTHER */
+    @NotBlank(message = "家庭角色不能为空")
     private String role;
 }

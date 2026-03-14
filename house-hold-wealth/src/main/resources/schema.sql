@@ -28,16 +28,19 @@ CREATE TABLE IF NOT EXISTS account_3 LIKE account_0;
 
 -- 迭代五：家庭共有资产表
 CREATE TABLE IF NOT EXISTS family_asset (
-  id            BIGINT PRIMARY KEY              COMMENT '资产ID',
-  family_id     BIGINT NOT NULL                 COMMENT '所属家庭ID',
-  asset_name    VARCHAR(64) NOT NULL            COMMENT '资产名称',
-  asset_type    VARCHAR(32) NOT NULL            COMMENT '类型: REAL_ESTATE/VEHICLE/DEPOSIT/INVESTMENT/OTHER',
-  amount        BIGINT NOT NULL DEFAULT 0       COMMENT '金额（单位：分）',
-  currency      VARCHAR(8) NOT NULL DEFAULT 'CNY' COMMENT '货币',
-  remark        VARCHAR(256) DEFAULT NULL       COMMENT '备注',
-  created_by    BIGINT NOT NULL                 COMMENT '创建人ID',
-  created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  id             BIGINT PRIMARY KEY              COMMENT '资产ID',
+  family_id      BIGINT NOT NULL                 COMMENT '所属家庭ID',
+  asset_name     VARCHAR(64) NOT NULL            COMMENT '资产名称',
+  asset_type     VARCHAR(32) NOT NULL            COMMENT '类型: REAL_ESTATE/VEHICLE/DEPOSIT/INVESTMENT/OTHER',
+  amount         BIGINT NOT NULL DEFAULT 0       COMMENT '资产金额（单位：分）',
+  currency       VARCHAR(8) NOT NULL DEFAULT 'CNY' COMMENT '货币',
+  remark         VARCHAR(256) DEFAULT NULL       COMMENT '备注',
+  loan_total     BIGINT NOT NULL DEFAULT 0       COMMENT '贷款总额（单位：分，房贷/车贷）',
+  loan_remaining BIGINT NOT NULL DEFAULT 0       COMMENT '当前贷款余额（单位：分，计入负债）',
+  loan_only      TINYINT(1) NOT NULL DEFAULT 0   COMMENT '是否只统计负债，不计入资产总额',
+  created_by     BIGINT NOT NULL                 COMMENT '创建人ID',
+  created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   KEY idx_family_id (family_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='家庭共有资产表';
 

@@ -43,6 +43,7 @@ public class UserService {
             return null;
         }
         if (req.getName() != null) user.setName(req.getName());
+        if (req.getGender() != null) user.setGender(req.getGender());
         if (req.getBirthday() != null && !req.getBirthday().isBlank()) {
             user.setBirthday(LocalDate.parse(req.getBirthday()));
         }
@@ -60,6 +61,7 @@ public class UserService {
                 String.valueOf(user.getId()),
                 user.getUsername(),
                 user.getName(),
+                user.getGender(),
                 user.getBirthday() != null ? user.getBirthday().toString() : null,
                 user.getEmail(),
                 user.getPhone(),

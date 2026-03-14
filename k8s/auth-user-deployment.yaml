@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: house-hold-auth-user
+  namespace: house-hold
+  labels:
+    app: house-hold-auth-user
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: house-hold-auth-user
+  template:
+    metadata:
+      labels:
+        app: house-hold-auth-user
+    spec:
+      containers:
+        - name: auth-user
+          image: house-hold-auth-user:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8081
+          env:
+            - name: SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: house-hold-config
+                  key: NACOS_SERVER
+            - name: SPRING_DATA_REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: house-hold-config
+                  key: REDIS_HOST
+            - name: SPRING_DATA_REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: house-hold-config
+                  key: REDIS_PORT
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: house-hold-config
+                  key: MYSQL_AUTH_URL
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: house-hold-config
+                  key: MYSQL_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: house-hold-secret
+                  key: MYSQL_PASSWORD
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                configMapKeyRef:
+                  name: house-hold-config
+                  key: KAFKA_BOOTSTRAP_SERVERS
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            initialDelaySeconds: 90
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            initialDelaySeconds: 40
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: house-hold-auth-user
+  namespace: house-hold
+spec:
+  selector:
+    app: house-hold-auth-user
+  ports:
+    - port: 8081
+      targetPort: 8081
+      name: http
