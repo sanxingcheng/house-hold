@@ -19,4 +19,10 @@ public class AccountCreateRequest {
     private Long balance;
 
     private String currency;
+
+    /** 是否立即可用现金，信用卡不填；投资类默认 false */
+    private Boolean availableImmediately;
+
+    @Size(max = 256, message = "备注最多 256 字符")
+    private String remark;
 }

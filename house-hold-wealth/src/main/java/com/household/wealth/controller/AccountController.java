@@ -2,6 +2,7 @@ package com.household.wealth.controller;
 
 import com.household.wealth.dto.request.AccountCreateRequest;
 import com.household.wealth.dto.request.AccountUpdateRequest;
+import com.household.wealth.dto.response.AccountBalancePointResponse;
 import com.household.wealth.dto.response.AccountResponse;
 import com.household.wealth.service.AccountService;
 import jakarta.validation.Valid;
@@ -9,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -61,6 +63,17 @@ public class AccountController {
             @PathVariable Long id) {
         accountService.deleteAccount(userId, id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/history")
+    public ResponseEntity<List<AccountBalancePointResponse>> accountHistory(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader(value = "X-Family-Id", required = false) Long familyId,
+            @PathVariable Long id,
+            @RequestParam String from,
+            @RequestParam String to) {
+        return ResponseEntity.ok(accountService.getAccountBalanceHistory(
+                userId, familyId, id, LocalDate.parse(from), LocalDate.parse(to)));
     }
 
     // ======================== 管理员代管成员账户 ========================

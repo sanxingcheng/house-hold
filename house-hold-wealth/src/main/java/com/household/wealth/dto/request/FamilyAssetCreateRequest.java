@@ -33,4 +33,9 @@ public class FamilyAssetCreateRequest {
      * 是否只统计负债，不把资产金额计入家庭资产/快照。
      */
     private Boolean loanOnly;
+
+    private Long commercialLoanTotal;
+    private Long commercialLoanRemaining;
+    private Long providentLoanTotal;
+    private Long providentLoanRemaining;
 }

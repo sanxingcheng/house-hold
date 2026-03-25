@@ -14,4 +14,9 @@ public class AccountUpdateRequest {
     private Long balance;
 
     private String currency;
+
+    private Boolean availableImmediately;
+
+    @Size(max = 256, message = "备注最多 256 字符")
+    private String remark;
 }

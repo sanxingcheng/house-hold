@@ -51,7 +51,7 @@ class AccountControllerTest {
     }
 
     private AccountResponse sampleResponse() {
-        return new AccountResponse("1", "10", "工商银行", "SAVINGS", 10000L, "CNY", "2025-01-01T00:00", "2025-01-02T00:00");
+        return new AccountResponse("1", "10", "工商银行", "SAVINGS", 10000L, "CNY", true, null, "2025-01-01T00:00", "2025-01-02T00:00");
     }
 
     @Nested
@@ -146,7 +146,7 @@ class AccountControllerTest {
         @Test
         @DisplayName("更新成功返回 200")
         void returns200OnSuccess() throws Exception {
-            AccountResponse updated = new AccountResponse("1", "10", "新名称", "SAVINGS", 8000L,"CNY", "2025-01-01T00:00", "2025-01-01T00:00");
+            AccountResponse updated = new AccountResponse("1", "10", "新名称", "SAVINGS", 8000L, "CNY", true, null, "2025-01-01T00:00", "2025-01-01T00:00");
             when(accountService.updateAccount(eq(10L), eq(1L), any(AccountUpdateRequest.class)))
                     .thenReturn(updated);
 

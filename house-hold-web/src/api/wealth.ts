@@ -21,6 +21,15 @@ export function deleteAccount(id: string) {
   return request.delete(`/wealth/accounts/${id}`)
 }
 
+/** 账户余额变化趋势（按日快照） */
+export interface AccountBalancePoint {
+  snapshotDate: string
+  balance: number
+}
+export function getAccountHistory(accountId: string, from: string, to: string) {
+  return request.get<AccountBalancePoint[]>(`/wealth/accounts/${accountId}/history`, { params: { from, to } })
+}
+
 export function getUserSummary() {
   return request.get<WealthSummary>('/wealth/summary/user')
 }
@@ -74,4 +83,28 @@ export function updateMemberAccount(targetUserId: string, accountId: string, dat
 
 export function deleteMemberAccount(targetUserId: string, accountId: string) {
   return request.delete(`/wealth/accounts/member/${targetUserId}/${accountId}`)
+}
+
+// Operation logs (family scope, requires X-Family-Id from gateway)
+export interface OperationLogsResponse {
+  content: OperationLogItem[]
+  totalElements: number
+  totalPages: number
+  number: number
+  size: number
+}
+export interface OperationLogItem {
+  id: string
+  userId: string
+  familyId: string | null
+  action: string
+  resourceType: string
+  resourceId: string
+  detail: string | null
+  createdAt: string
+}
+export function getOperationLogs(page = 0, size = 20, familyId?: string) {
+  const headers: Record<string, string> = {}
+  if (familyId) headers['X-Family-Id'] = familyId
+  return request.get<OperationLogsResponse>('/wealth/operation-logs', { params: { page, size }, headers })
 }

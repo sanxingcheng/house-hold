@@ -27,6 +27,9 @@ public class FamilyAssetService {
     @Autowired(required = false)
     private SummaryCacheService summaryCacheService;
 
+    @Autowired(required = false)
+    private OperationLogService operationLogService;
+
     private static final SnowflakeIdGenerator ID_GEN = new SnowflakeIdGenerator(2, 3);
 
     public List<FamilyAssetResponse> listByFamily(Long familyId) {
@@ -54,9 +57,16 @@ public class FamilyAssetService {
         if (req.getLoanOnly() != null) {
             asset.setLoanOnly(req.getLoanOnly());
         }
+        if (req.getCommercialLoanTotal() != null) asset.setCommercialLoanTotal(req.getCommercialLoanTotal());
+        if (req.getCommercialLoanRemaining() != null) asset.setCommercialLoanRemaining(req.getCommercialLoanRemaining());
+        if (req.getProvidentLoanTotal() != null) asset.setProvidentLoanTotal(req.getProvidentLoanTotal());
+        if (req.getProvidentLoanRemaining() != null) asset.setProvidentLoanRemaining(req.getProvidentLoanRemaining());
         asset.setCreatedBy(userId);
         familyAssetRepository.save(asset);
         invalidateFamilySummaryCache(familyId);
+        if (operationLogService != null) {
+            operationLogService.createLog(userId, familyId, "CREATE", "ASSET", String.valueOf(asset.getId()), req.getAssetName());
+        }
         return toResponse(asset);
     }
 
@@ -76,8 +86,15 @@ public class FamilyAssetService {
         if (req.getLoanTotal() != null) asset.setLoanTotal(req.getLoanTotal());
         if (req.getLoanRemaining() != null) asset.setLoanRemaining(req.getLoanRemaining());
         if (req.getLoanOnly() != null) asset.setLoanOnly(req.getLoanOnly());
+        if (req.getCommercialLoanTotal() != null) asset.setCommercialLoanTotal(req.getCommercialLoanTotal());
+        if (req.getCommercialLoanRemaining() != null) asset.setCommercialLoanRemaining(req.getCommercialLoanRemaining());
+        if (req.getProvidentLoanTotal() != null) asset.setProvidentLoanTotal(req.getProvidentLoanTotal());
+        if (req.getProvidentLoanRemaining() != null) asset.setProvidentLoanRemaining(req.getProvidentLoanRemaining());
         familyAssetRepository.save(asset);
         invalidateFamilySummaryCache(familyId);
+        if (operationLogService != null) {
+            operationLogService.createLog(userId, familyId, "UPDATE", "ASSET", String.valueOf(assetId), asset.getAssetName());
+        }
         return toResponse(asset);
     }
 
@@ -89,8 +106,12 @@ public class FamilyAssetService {
         if (!asset.getFamilyId().equals(familyId)) {
             throw new ForbiddenException("资产不属于该家庭");
         }
+        String name = asset.getAssetName();
         familyAssetRepository.delete(asset);
         invalidateFamilySummaryCache(familyId);
+        if (operationLogService != null) {
+            operationLogService.createLog(userId, familyId, "DELETE", "ASSET", String.valueOf(assetId), name);
+        }
     }
 
     private void invalidateFamilySummaryCache(Long familyId) {
@@ -124,6 +145,10 @@ public class FamilyAssetService {
                 a.getCreatedAt() != null ? a.getCreatedAt().toString() : null,
                 a.getLoanTotal(),
                 a.getLoanRemaining(),
+                a.getCommercialLoanTotal(),
+                a.getCommercialLoanRemaining(),
+                a.getProvidentLoanTotal(),
+                a.getProvidentLoanRemaining(),
                 a.getLoanOnly()
         );
     }

@@ -42,6 +42,13 @@ public class Account {
     @Column(nullable = false, length = 8)
     private String currency;
 
+    /** 是否立即可用现金，投资类默认 false，信用卡无此字段含义 */
+    @Column(name = "available_immediately", nullable = false)
+    private Boolean availableImmediately = true;
+
+    @Column(length = 256)
+    private String remark;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

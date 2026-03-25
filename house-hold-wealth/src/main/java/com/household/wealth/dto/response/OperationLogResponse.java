@@ -7,15 +7,13 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class AccountResponse {
+public class OperationLogResponse {
     private String id;
     private String userId;
-    private String accountName;
-    private String accountType;
-    private Long balance;
-    private String currency;
-    private Boolean availableImmediately;
-    private String remark;
+    private String familyId;
+    private String action;
+    private String resourceType;
+    private String resourceId;
+    private String detail;
     private String createdAt;
-    private String updatedAt;
 }

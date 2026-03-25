@@ -3,8 +3,9 @@
     <div class="dashboard" v-loading="loading">
       <h1 class="page-title">欢迎，{{ user?.username }}</h1>
 
+      <!-- 卡片纵向排列，不并列一行 -->
       <el-row class="summary-row" :gutter="gutter">
-        <el-col :xs="24" :sm="12" :lg="12">
+        <el-col :span="24">
           <el-card shadow="hover" class="summary-card">
             <template #header>
               <div class="card-header">
@@ -20,11 +21,12 @@
             />
             <div v-if="userSummary" class="card-detail">
               资产 ¥{{ formatMoney(userSummary.totalAssets) }} · 负债 ¥{{ formatMoney(userSummary.totalLiabilities) }}
+              <span v-if="userSummary.availableCash != null"> · 可用现金 ¥{{ formatMoney(userSummary.availableCash) }}</span>
             </div>
           </el-card>
         </el-col>
 
-        <el-col :xs="24" :sm="12" :lg="12">
+        <el-col :span="24">
           <el-card shadow="hover" class="summary-card" :class="{ 'card-disabled': !hasFamilyId }">
             <template #header>
               <div class="card-header">
@@ -43,6 +45,7 @@
                 <span>成员账户 ¥{{ formatMoney(memberAccountTotal) }}</span>
                 <span v-if="familySharedTotal > 0"> · 共有资产 ¥{{ formatMoney(familySharedTotal) }}</span>
                 <span> · 负债 ¥{{ formatMoney(familySummary.totalLiabilities) }}</span>
+                <span v-if="familySummary.availableCash != null"> · 可用现金 ¥{{ formatMoney(familySummary.availableCash) }}</span>
               </div>
             </template>
             <template v-else>
@@ -62,17 +65,26 @@
             </template>
             <el-empty v-if="memberRows.length === 0" description="暂无成员资产数据" :image-size="48" />
             <div v-else class="table-wrap">
-              <el-table :data="memberRows" size="small" class="responsive-table">
+              <el-table :data="displayMemberRows" size="small" class="responsive-table">
                 <el-table-column prop="name" label="成员" min-width="80" />
                 <el-table-column prop="assetYuan" label="资产" min-width="90" align="right">
-                  <template #default="{ row }">¥ {{ row.assetYuan }}</template>
+                  <template #default="{ row }">
+                    <span :class="{ 'summary-amount': row.isTotal }">¥ {{ row.assetYuan }}</span>
+                  </template>
                 </el-table-column>
                 <el-table-column prop="liabilityYuan" label="负债" min-width="90" align="right">
-                  <template #default="{ row }">¥ {{ row.liabilityYuan }}</template>
+                  <template #default="{ row }">
+                    <span :class="{ 'summary-amount': row.isTotal }">¥ {{ row.liabilityYuan }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="availableCashYuan" label="可用现金" min-width="95" align="right">
+                  <template #default="{ row }">
+                    <span :class="{ 'summary-amount': row.isTotal }">¥ {{ row.availableCashYuan }}</span>
+                  </template>
                 </el-table-column>
                 <el-table-column prop="netYuan" label="净资产" min-width="90" align="right">
                   <template #default="{ row }">
-                    <span :style="{ color: row.net >= 0 ? '#409eff' : '#f56c6c' }">
+                    <span :style="{ color: row.net >= 0 ? '#409eff' : '#f56c6c' }" :class="{ 'summary-amount': row.isTotal }">
                       ¥ {{ row.netYuan }}
                     </span>
                   </template>
@@ -151,7 +163,7 @@ const memberAccountTotal = computed(() =>
 const memberRows = computed(() => {
   if (!hasFamilyId.value || familyAccounts.value.length === 0 || familyStore.members.length === 0) return []
 
-  const groups = new Map<string, { userId: string; name: string; asset: number; liability: number }>()
+  const groups = new Map<string, { userId: string; name: string; asset: number; liability: number; availableCash: number }>()
   const members = familyStore.members as Array<{ userId: string; name?: string; username: string }>
 
   const findName = (uid: string) => {
@@ -163,13 +175,14 @@ const memberRows = computed(() => {
   familyAccounts.value.forEach((acc: Account) => {
     const uid = acc.userId
     if (!groups.has(uid)) {
-      groups.set(uid, { userId: uid, name: findName(uid), asset: 0, liability: 0 })
+      groups.set(uid, { userId: uid, name: findName(uid), asset: 0, liability: 0, availableCash: 0 })
     }
     const g = groups.get(uid)!
     if (acc.accountType === 'CREDIT_CARD') {
       g.liability += acc.balance
     } else {
       g.asset += acc.balance
+      if (acc.availableImmediately !== false) g.availableCash += acc.balance
     }
   })
 
@@ -178,8 +191,39 @@ const memberRows = computed(() => {
     net: g.asset - g.liability,
     assetYuan: (g.asset / 100).toFixed(2),
     liabilityYuan: (g.liability / 100).toFixed(2),
+    availableCashYuan: (g.availableCash / 100).toFixed(2),
     netYuan: ((g.asset - g.liability) / 100).toFixed(2),
+    isTotal: false,
   }))
+})
+
+// 显示的行（包含汇总行）
+const displayMemberRows = computed(() => {
+  const rows = memberRows.value
+
+  // 计算汇总数据
+  const total = rows.reduce(
+    (acc, row) => ({
+      asset: acc.asset + parseFloat(row.assetYuan),
+      liability: acc.liability + parseFloat(row.liabilityYuan),
+      availableCash: acc.availableCash + parseFloat(row.availableCashYuan),
+      net: acc.net + parseFloat(row.netYuan),
+    }),
+    { asset: 0, liability: 0, availableCash: 0, net: 0 }
+  )
+
+  // 添加汇总行到末尾
+  const totalRow = {
+    name: '合计',
+    assetYuan: total.asset.toFixed(2),
+    liabilityYuan: total.liability.toFixed(2),
+    availableCashYuan: total.availableCash.toFixed(2),
+    netYuan: total.net.toFixed(2),
+    net: total.net,
+    isTotal: true,
+  }
+
+  return [...rows, totalRow]
 })
 
 function formatMoney(fen: number) {
@@ -221,7 +265,6 @@ onMounted(async () => {
 <style scoped>
 .dashboard {
   width: 100%;
-  max-width: 1200px;
   margin: 0 auto;
   padding: 0 16px;
   box-sizing: border-box;
@@ -239,12 +282,6 @@ onMounted(async () => {
 
 .summary-row .el-col {
   margin-bottom: 16px;
-}
-
-@media (min-width: 768px) {
-  .summary-row .el-col {
-    margin-bottom: 0;
-  }
 }
 
 .summary-card {
@@ -274,6 +311,11 @@ onMounted(async () => {
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+.summary-amount {
+  font-weight: 600;
+  color: #409eff;
 }
 
 .responsive-table {

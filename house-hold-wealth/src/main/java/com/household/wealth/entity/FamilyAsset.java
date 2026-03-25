@@ -54,6 +54,18 @@ public class FamilyAsset {
     @Column(name = "loan_only", nullable = false)
     private Boolean loanOnly = false;
 
+    @Column(name = "commercial_loan_total", nullable = false)
+    private Long commercialLoanTotal = 0L;
+
+    @Column(name = "commercial_loan_remaining", nullable = false)
+    private Long commercialLoanRemaining = 0L;
+
+    @Column(name = "provident_loan_total", nullable = false)
+    private Long providentLoanTotal = 0L;
+
+    @Column(name = "provident_loan_remaining", nullable = false)
+    private Long providentLoanRemaining = 0L;
+
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
 

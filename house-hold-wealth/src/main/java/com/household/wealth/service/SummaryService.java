@@ -64,7 +64,14 @@ public class SummaryService {
                 .sum();
         long loanLiabilities = assets.stream()
                 .filter(a -> "REAL_ESTATE".equals(a.getAssetType()) || "VEHICLE".equals(a.getAssetType()))
-                .mapToLong(FamilyAsset::getLoanRemaining)
+                .mapToLong(a -> {
+                    long commercial = a.getCommercialLoanRemaining() != null ? a.getCommercialLoanRemaining() : 0L;
+                    long provident = a.getProvidentLoanRemaining() != null ? a.getProvidentLoanRemaining() : 0L;
+                    if (commercial == 0L && provident == 0L) {
+                        return a.getLoanRemaining() != null ? a.getLoanRemaining() : 0L;
+                    }
+                    return commercial + provident;
+                })
                 .sum();
 
         return buildSummary(accounts, String.valueOf(familyId), OWNER_TYPE_FAMILY, familyAssetTotal, loanLiabilities);
@@ -79,6 +86,10 @@ public class SummaryService {
         long totalLiabilitiesFromAccounts = accounts.stream()
                 .filter(a -> CREDIT_CARD.equals(a.getAccountType()))
                 .mapToLong(Account::getBalance).sum();
+        long availableCash = accounts.stream()
+                .filter(a -> !CREDIT_CARD.equals(a.getAccountType()))
+                .filter(a -> Boolean.TRUE.equals(a.getAvailableImmediately()))
+                .mapToLong(Account::getBalance).sum();
         long totalLiabilities = totalLiabilitiesFromAccounts + extraLiabilities;
         long totalAssets = accountAssets + familyAssetTotal;
         long netWorth = totalAssets - totalLiabilities;
@@ -90,6 +101,7 @@ public class SummaryService {
         if (OWNER_TYPE_FAMILY.equals(ownerType)) {
             resp.setFamilyAssetTotal(familyAssetTotal);
         }
+        resp.setAvailableCash(availableCash);
         return resp;
     }
 }

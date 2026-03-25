@@ -129,7 +129,6 @@ onMounted(loadData)
 
 <style scoped>
 .wealth-history {
-  max-width: 960px;
   margin: 0 auto;
 }
 .controls {

@@ -19,5 +19,9 @@ public class FamilyAssetResponse {
     private String createdAt;
     private Long loanTotal;
     private Long loanRemaining;
+    private Long commercialLoanTotal;
+    private Long commercialLoanRemaining;
+    private Long providentLoanTotal;
+    private Long providentLoanRemaining;
     private Boolean loanOnly;
 }

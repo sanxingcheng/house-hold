@@ -2,18 +2,25 @@
 -- ShardingSphere-JDBC 将逻辑表 "account" 路由到 account_0 ~ account_3
 
 CREATE TABLE IF NOT EXISTS account_0 (
-  id            BIGINT PRIMARY KEY              COMMENT '账户 ID（应用生成）',
-  user_id       BIGINT NOT NULL                 COMMENT '所属用户 ID',
-  family_id     BIGINT DEFAULT NULL             COMMENT '所属家庭 ID（冗余，便于家庭维度查询）',
-  account_name  VARCHAR(64) NOT NULL            COMMENT '账户名称',
-  account_type  VARCHAR(32) NOT NULL            COMMENT '类型: SAVING/CREDIT_CARD/STOCK/FUND/ALIPAY/WECHAT/OTHER',
-  balance       BIGINT NOT NULL DEFAULT 0       COMMENT '余额（单位：分）',
-  currency      VARCHAR(8) NOT NULL DEFAULT 'CNY' COMMENT '货币',
-  created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  id                   BIGINT PRIMARY KEY              COMMENT '账户 ID（应用生成）',
+  user_id              BIGINT NOT NULL                 COMMENT '所属用户 ID',
+  family_id            BIGINT DEFAULT NULL             COMMENT '所属家庭 ID（冗余，便于家庭维度查询）',
+  account_name         VARCHAR(64) NOT NULL            COMMENT '账户名称',
+  account_type         VARCHAR(32) NOT NULL            COMMENT '类型: SAVING/CREDIT_CARD/STOCK/FUND/ALIPAY/WECHAT/OTHER',
+  balance              BIGINT NOT NULL DEFAULT 0       COMMENT '余额（单位：分）',
+  currency             VARCHAR(8) NOT NULL DEFAULT 'CNY' COMMENT '货币',
+  available_immediately TINYINT(1) NOT NULL DEFAULT 1  COMMENT '是否立即可用现金，投资类默认0，信用卡无此选项',
+  remark               VARCHAR(256) DEFAULT NULL       COMMENT '备注',
+  created_at           DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at           DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   KEY idx_user_id   (user_id),
   KEY idx_family_id (family_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='个人账户表（分片 0）';
+
+-- 存量库升级：
+ALTER TABLE account_0 ADD COLUMN available_immediately TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否立即可用现金';
+ALTER TABLE account_0 ADD COLUMN remark VARCHAR(256) DEFAULT NULL COMMENT '备注';
+-- 对 account_1, account_2, account_3 执行相同 ADD COLUMN
 
 CREATE TABLE IF NOT EXISTS account_1 LIKE account_0;
 CREATE TABLE IF NOT EXISTS account_2 LIKE account_0;
@@ -37,12 +44,41 @@ CREATE TABLE IF NOT EXISTS family_asset (
   remark         VARCHAR(256) DEFAULT NULL       COMMENT '备注',
   loan_total     BIGINT NOT NULL DEFAULT 0       COMMENT '贷款总额（单位：分，房贷/车贷）',
   loan_remaining BIGINT NOT NULL DEFAULT 0       COMMENT '当前贷款余额（单位：分，计入负债）',
+  commercial_loan_total     BIGINT NOT NULL DEFAULT 0 COMMENT '商贷总额（分）',
+  commercial_loan_remaining BIGINT NOT NULL DEFAULT 0 COMMENT '商贷余额（分）',
+  provident_loan_total      BIGINT NOT NULL DEFAULT 0 COMMENT '公积金贷款总额（分）',
+  provident_loan_remaining  BIGINT NOT NULL DEFAULT 0 COMMENT '公积金贷款余额（分）',
   loan_only      TINYINT(1) NOT NULL DEFAULT 0   COMMENT '是否只统计负债，不计入资产总额',
   created_by     BIGINT NOT NULL                 COMMENT '创建人ID',
   created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   KEY idx_family_id (family_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='家庭共有资产表';
+
+-- 操作日志：记录家庭、账户、成员、资产的操作
+CREATE TABLE IF NOT EXISTS operation_log (
+  id             BIGINT PRIMARY KEY              COMMENT '日志ID',
+  user_id        BIGINT NOT NULL                 COMMENT '操作用户ID',
+  family_id      BIGINT DEFAULT NULL             COMMENT '关联家庭ID',
+  action         VARCHAR(32) NOT NULL            COMMENT 'CREATE/UPDATE/DELETE',
+  resource_type  VARCHAR(32) NOT NULL            COMMENT 'FAMILY/ACCOUNT/MEMBER/ASSET',
+  resource_id    VARCHAR(64) DEFAULT NULL        COMMENT '资源ID',
+  detail         VARCHAR(512) DEFAULT NULL      COMMENT '详情摘要',
+  created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_family_created (family_id, created_at),
+  KEY idx_user_created (user_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='操作日志表';
+
+-- 账户余额快照：按日记录每个账户余额，用于余额趋势
+CREATE TABLE IF NOT EXISTS account_balance_snapshot (
+  id             BIGINT PRIMARY KEY              COMMENT '主键',
+  account_id     BIGINT NOT NULL                 COMMENT '账户 ID',
+  balance        BIGINT NOT NULL                 COMMENT '余额（分）',
+  snapshot_date  DATE NOT NULL                  COMMENT '快照日期',
+  created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_account_date (account_id, snapshot_date),
+  KEY idx_account_date (account_id, snapshot_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='账户余额快照表';
 
 CREATE TABLE IF NOT EXISTS wealth_snapshot (
   id                BIGINT PRIMARY KEY              COMMENT '快照 ID',

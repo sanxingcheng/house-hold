@@ -8,6 +8,7 @@ import com.household.wealth.cache.AccountCacheService;
 import com.household.wealth.client.AuthUserClient;
 import com.household.wealth.dto.request.AccountCreateRequest;
 import com.household.wealth.dto.request.AccountUpdateRequest;
+import com.household.wealth.dto.response.AccountBalancePointResponse;
 import com.household.wealth.dto.response.AccountResponse;
 import com.household.wealth.entity.Account;
 import com.household.wealth.repository.AccountRepository;
@@ -16,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -35,8 +37,12 @@ public class AccountService {
     @Autowired(required = false)
     private AccountCacheService accountCacheService;
 
+    @Autowired(required = false)
+    private OperationLogService operationLogService;
+
     private static final SnowflakeIdGenerator ACCOUNT_ID_GEN = new SnowflakeIdGenerator(2, 1);
     private static final String DEFAULT_CURRENCY = "CNY";
+    private static final java.util.Set<String> INVESTMENT_TYPES = java.util.Set.of("STOCK", "FUND");
 
     public List<AccountResponse> getAccounts(Long userId) {
         if (accountCacheService != null) {
@@ -68,10 +74,13 @@ public class AccountService {
         account.setAccountType(req.getAccountType());
         account.setBalance(req.getBalance());
         account.setCurrency(req.getCurrency() != null ? req.getCurrency() : DEFAULT_CURRENCY);
+        account.setAvailableImmediately(resolveAvailableImmediately(req.getAccountType(), req.getAvailableImmediately()));
+        account.setRemark(req.getRemark());
         accountRepository.save(account);
 
         invalidateCaches(userId, familyId);
         snapshotService.triggerSnapshot(userId, familyId);
+        logOperation(userId, familyId, "CREATE", "ACCOUNT", String.valueOf(account.getId()), req.getAccountName());
 
         return toResponse(account);
     }
@@ -88,10 +97,13 @@ public class AccountService {
         if (req.getAccountType() != null) account.setAccountType(req.getAccountType());
         if (req.getBalance() != null) account.setBalance(req.getBalance());
         if (req.getCurrency() != null) account.setCurrency(req.getCurrency());
+        if (req.getAvailableImmediately() != null) account.setAvailableImmediately(req.getAvailableImmediately());
+        if (req.getRemark() != null) account.setRemark(req.getRemark());
         accountRepository.save(account);
 
         invalidateCaches(userId, account.getFamilyId());
         snapshotService.triggerSnapshot(userId, account.getFamilyId());
+        logOperation(userId, account.getFamilyId(), "UPDATE", "ACCOUNT", String.valueOf(accountId), account.getAccountName());
 
         return toResponse(account);
     }
@@ -105,10 +117,12 @@ public class AccountService {
         }
 
         Long familyId = account.getFamilyId();
+        String name = account.getAccountName();
         accountRepository.delete(account);
 
         invalidateCaches(userId, familyId);
         snapshotService.triggerSnapshot(userId, familyId);
+        logOperation(userId, familyId, "DELETE", "ACCOUNT", String.valueOf(accountId), name);
     }
 
     private List<AccountResponse> loadFromDb(Long userId) {
@@ -137,6 +151,23 @@ public class AccountService {
         return loadFromDb(targetUserId);
     }
 
+    /**
+     * 查询账户余额变化趋势。本人可查自己的账户；管理员可查家庭内成员账户。
+     */
+    public List<AccountBalancePointResponse> getAccountBalanceHistory(Long userId, Long familyId, Long accountId,
+                                                                     LocalDate from, LocalDate to) {
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new NotFoundException("账户不存在"));
+        if (account.getUserId().equals(userId)) {
+            return snapshotService.getAccountBalanceHistory(accountId, from, to);
+        }
+        if (familyId != null && familyId.equals(account.getFamilyId())) {
+            requireFamilyAdmin(userId, familyId);
+            return snapshotService.getAccountBalanceHistory(accountId, from, to);
+        }
+        throw new ForbiddenException("无权查看该账户");
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public AccountResponse createAccountForMember(Long adminUserId, Long familyId, Long targetUserId,
                                                    AccountCreateRequest req) {
@@ -149,9 +180,12 @@ public class AccountService {
         account.setAccountType(req.getAccountType());
         account.setBalance(req.getBalance());
         account.setCurrency(req.getCurrency() != null ? req.getCurrency() : DEFAULT_CURRENCY);
+        account.setAvailableImmediately(resolveAvailableImmediately(req.getAccountType(), req.getAvailableImmediately()));
+        account.setRemark(req.getRemark());
         accountRepository.save(account);
         invalidateCaches(targetUserId, familyId);
         snapshotService.triggerSnapshot(targetUserId, familyId);
+        logOperation(adminUserId, familyId, "CREATE", "ACCOUNT", String.valueOf(account.getId()), req.getAccountName());
         return toResponse(account);
     }
 
@@ -168,9 +202,12 @@ public class AccountService {
         if (req.getAccountType() != null) account.setAccountType(req.getAccountType());
         if (req.getBalance() != null) account.setBalance(req.getBalance());
         if (req.getCurrency() != null) account.setCurrency(req.getCurrency());
+        if (req.getAvailableImmediately() != null) account.setAvailableImmediately(req.getAvailableImmediately());
+        if (req.getRemark() != null) account.setRemark(req.getRemark());
         accountRepository.save(account);
         invalidateCaches(targetUserId, familyId);
         snapshotService.triggerSnapshot(targetUserId, familyId);
+        logOperation(adminUserId, familyId, "UPDATE", "ACCOUNT", String.valueOf(accountId), account.getAccountName());
         return toResponse(account);
     }
 
@@ -182,9 +219,17 @@ public class AccountService {
         if (!account.getUserId().equals(targetUserId)) {
             throw new ForbiddenException("账户不属于该成员");
         }
+        String name = account.getAccountName();
         accountRepository.delete(account);
         invalidateCaches(targetUserId, familyId);
         snapshotService.triggerSnapshot(targetUserId, familyId);
+        logOperation(adminUserId, familyId, "DELETE", "ACCOUNT", String.valueOf(accountId), name);
+    }
+
+    private void logOperation(Long userId, Long familyId, String action, String resourceType, String resourceId, String detail) {
+        if (operationLogService != null && familyId != null) {
+            operationLogService.createLog(userId, familyId, action, resourceType, resourceId, detail);
+        }
     }
 
     private void requireFamilyAdmin(Long userId, Long familyId) {
@@ -199,6 +244,13 @@ public class AccountService {
         }
     }
 
+    /** 信用卡无“是否立即可用”含义；投资类默认 false；其他默认 true */
+    private static Boolean resolveAvailableImmediately(String accountType, Boolean fromRequest) {
+        if ("CREDIT_CARD".equals(accountType)) return true;
+        if (fromRequest != null) return fromRequest;
+        return !INVESTMENT_TYPES.contains(accountType);
+    }
+
     private AccountResponse toResponse(Account a) {
         return new AccountResponse(
                 String.valueOf(a.getId()),
@@ -207,6 +259,8 @@ public class AccountService {
                 a.getAccountType(),
                 a.getBalance(),
                 a.getCurrency(),
+                a.getAvailableImmediately(),
+                a.getRemark(),
                 a.getCreatedAt() != null ? a.getCreatedAt().toString() : null,
                 a.getUpdatedAt() != null ? a.getUpdatedAt().toString() : null);
     }

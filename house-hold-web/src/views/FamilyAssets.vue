@@ -8,30 +8,42 @@
 
       <el-empty v-if="wealthStore.familyAssets.length === 0 && !pageLoading" description="暂无共有资产" />
 
-      <el-table v-else :data="wealthStore.familyAssets" stripe style="width:100%">
+      <el-table v-else :data="wealthStore.familyAssets" stripe style="width:100%" @cell-dblclick="handleCellDblClick">
         <el-table-column prop="assetName" label="资产名称" min-width="140" />
-        <el-table-column label="类型" width="120">
+        <el-table-column label="类型" min-width="120">
           <template #default="{ row }">
             <el-tag size="small">{{ typeLabel(row.assetType) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="金额" width="160" align="right">
+        <el-table-column label="金额" min-width="160" align="right">
           <template #default="{ row }">
             <span style="font-weight:600;color:#409eff">¥ {{ formatMoney(row.amount) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="贷款余额" width="160" align="right">
+        <el-table-column label="贷款余额" min-width="120" align="right">
           <template #default="{ row }">
             <span v-if="showLoan(row.assetType)">
-              <span v-if="row.loanRemaining && row.loanRemaining > 0" style="font-weight:600;color:#f56c6c">
-                ¥ {{ formatMoney(row.loanRemaining) }}
+              <span v-if="displayLoanRemaining(row) > 0" style="font-weight:600;color:#f56c6c">
+                ¥ {{ formatMoney(displayLoanRemaining(row)) }}
               </span>
               <span v-else>—</span>
             </span>
             <span v-else>—</span>
           </template>
         </el-table-column>
-        <el-table-column prop="currency" label="货币" width="80" />
+        <el-table-column v-if="hasRealEstate" label="商贷余额" min-width="120" align="right">
+          <template #default="{ row }">
+            <span v-if="row.assetType === 'REAL_ESTATE' && row.commercialLoanRemaining && row.commercialLoanRemaining > 0" style="color:#f56c6c">¥ {{ formatMoney(row.commercialLoanRemaining) }}</span>
+            <span v-else>—</span>
+          </template>
+        </el-table-column>
+        <el-table-column v-if="hasRealEstate" label="公积金余额" min-width="120" align="right">
+          <template #default="{ row }">
+            <span v-if="row.assetType === 'REAL_ESTATE' && row.providentLoanRemaining && row.providentLoanRemaining > 0" style="color:#f56c6c">¥ {{ formatMoney(row.providentLoanRemaining) }}</span>
+            <span v-else>—</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="currency" label="货币" min-width="80" />
         <el-table-column prop="remark" label="备注" min-width="160">
           <template #default="{ row }">
             <span>{{ row.remark || '—' }}</span>
@@ -45,7 +57,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column v-if="familyStore.isAdmin" label="操作" width="140" align="center">
+        <el-table-column v-if="familyStore.isAdmin" label="操作" min-width="140" align="center">
           <template #default="{ row }">
             <el-button size="small" link type="primary" @click="openEditDialog(row)">编辑</el-button>
             <el-popconfirm :title="`确定删除「${row.assetName}」？`" @confirm="handleDelete(row)">
@@ -67,8 +79,8 @@
       </div>
 
       <!-- 新增/编辑对话框 -->
-      <el-dialog v-model="showDialog" :title="isEditing ? '编辑资产' : '新增共有资产'" width="480px" destroy-on-close>
-        <el-form ref="dialogFormRef" :model="form" :rules="formRules" label-width="100px">
+      <el-dialog v-model="showDialog" :title="isEditing ? '编辑资产' : '新增共有资产'" width="520px" destroy-on-close>
+        <el-form ref="dialogFormRef" :model="form" :rules="formRules" label-width="160px">
           <el-form-item label="资产名称" prop="assetName">
             <el-input v-model="form.assetName" placeholder="如：房产-XX小区" maxlength="64" />
           </el-form-item>
@@ -109,9 +121,23 @@
               :step="10000"
               controls-position="right"
               style="width:100%"
-              :placeholder="showLoan(form.assetType) ? '计入负债的贷款余额' : '非房产/车辆一般留空'"
+              :placeholder="showLoan(form.assetType) ? '计入负债的贷款余额（车辆或未区分时填）' : '非房产/车辆一般留空'"
             />
           </el-form-item>
+          <template v-if="form.assetType === 'REAL_ESTATE'">
+            <el-form-item label="商贷总额（元）">
+              <el-input-number v-model="form.commercialLoanTotalYuan" :precision="2" :min="0" :step="10000" controls-position="right" style="width:100%" />
+            </el-form-item>
+            <el-form-item label="商贷余额（元）">
+              <el-input-number v-model="form.commercialLoanRemainingYuan" :precision="2" :min="0" :step="10000" controls-position="right" style="width:100%" />
+            </el-form-item>
+            <el-form-item label="公积金贷款总额（元）">
+              <el-input-number v-model="form.providentLoanTotalYuan" :precision="2" :min="0" :step="10000" controls-position="right" style="width:100%" />
+            </el-form-item>
+            <el-form-item label="公积金贷款余额（元）">
+              <el-input-number v-model="form.providentLoanRemainingYuan" :precision="2" :min="0" :step="10000" controls-position="right" style="width:100%" />
+            </el-form-item>
+          </template>
           <el-form-item v-if="showLoan(form.assetType)" label="只统计负债">
             <el-switch
               v-model="form.loanOnly"
@@ -158,6 +184,10 @@ const form = reactive({
   remark: '',
   loanTotalYuan: 0,
   loanRemainingYuan: 0,
+  commercialLoanTotalYuan: 0,
+  commercialLoanRemainingYuan: 0,
+  providentLoanTotalYuan: 0,
+  providentLoanRemainingYuan: 0,
   loanOnly: false,
 })
 
@@ -172,6 +202,13 @@ const TYPE_LABELS: Record<string, string> = {
 }
 function typeLabel(t: string) { return TYPE_LABELS[t] || t }
 function showLoan(t: string) { return t === 'REAL_ESTATE' || t === 'VEHICLE' }
+const hasRealEstate = computed(() => wealthStore.familyAssets.some(a => a.assetType === 'REAL_ESTATE'))
+function displayLoanRemaining(row: FamilyAsset): number {
+  if (row.assetType === 'REAL_ESTATE' && ((row.commercialLoanRemaining ?? 0) + (row.providentLoanRemaining ?? 0)) > 0) {
+    return (row.commercialLoanRemaining ?? 0) + (row.providentLoanRemaining ?? 0)
+  }
+  return row.loanRemaining ?? 0
+}
 function formatMoney(fen: number) {
   return (fen / 100).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -189,7 +226,9 @@ function openCreateDialog() {
   editingId.value = ''
   Object.assign(form, {
     assetName: '', assetType: '', amountYuan: 0, currency: 'CNY', remark: '',
-    loanTotalYuan: 0, loanRemainingYuan: 0, loanOnly: false,
+    loanTotalYuan: 0, loanRemainingYuan: 0,
+    commercialLoanTotalYuan: 0, commercialLoanRemainingYuan: 0, providentLoanTotalYuan: 0, providentLoanRemainingYuan: 0,
+    loanOnly: false,
   })
   showDialog.value = true
 }
@@ -202,6 +241,10 @@ function openEditDialog(asset: FamilyAsset) {
     amountYuan: asset.amount / 100, currency: asset.currency, remark: asset.remark || '',
     loanTotalYuan: (asset.loanTotal ?? 0) / 100,
     loanRemainingYuan: (asset.loanRemaining ?? 0) / 100,
+    commercialLoanTotalYuan: (asset.commercialLoanTotal ?? 0) / 100,
+    commercialLoanRemainingYuan: (asset.commercialLoanRemaining ?? 0) / 100,
+    providentLoanTotalYuan: (asset.providentLoanTotal ?? 0) / 100,
+    providentLoanRemainingYuan: (asset.providentLoanRemaining ?? 0) / 100,
     loanOnly: !!asset.loanOnly,
   })
   showDialog.value = true
@@ -217,19 +260,22 @@ async function handleSubmit() {
     const amountFen = Math.round(form.amountYuan * 100)
     const loanTotalFen = Math.round((form.loanTotalYuan || 0) * 100)
     const loanRemainingFen = Math.round((form.loanRemainingYuan || 0) * 100)
+    const commercialTotalFen = Math.round((form.commercialLoanTotalYuan || 0) * 100)
+    const commercialRemainingFen = Math.round((form.commercialLoanRemainingYuan || 0) * 100)
+    const providentTotalFen = Math.round((form.providentLoanTotalYuan || 0) * 100)
+    const providentRemainingFen = Math.round((form.providentLoanRemainingYuan || 0) * 100)
+    const payload = {
+      assetName: form.assetName, assetType: form.assetType as any,
+      amount: amountFen, currency: form.currency || 'CNY', remark: form.remark,
+      loanTotal: loanTotalFen, loanRemaining: loanRemainingFen, loanOnly: form.loanOnly,
+      commercialLoanTotal: commercialTotalFen, commercialLoanRemaining: commercialRemainingFen,
+      providentLoanTotal: providentTotalFen, providentLoanRemaining: providentRemainingFen,
+    }
     if (isEditing.value) {
-      await wealthStore.editFamilyAsset(editingId.value, {
-        assetName: form.assetName, assetType: form.assetType as any,
-        amount: amountFen, currency: form.currency || 'CNY', remark: form.remark,
-        loanTotal: loanTotalFen, loanRemaining: loanRemainingFen, loanOnly: form.loanOnly,
-      })
+      await wealthStore.editFamilyAsset(editingId.value, payload)
       ElMessage.success('资产已更新')
     } else {
-      await wealthStore.addFamilyAsset({
-        assetName: form.assetName, assetType: form.assetType as any,
-        amount: amountFen, currency: form.currency || 'CNY', remark: form.remark,
-        loanTotal: loanTotalFen, loanRemaining: loanRemainingFen, loanOnly: form.loanOnly,
-      })
+      await wealthStore.addFamilyAsset(payload)
       ElMessage.success('资产已创建')
     }
     showDialog.value = false
@@ -249,6 +295,10 @@ async function handleDelete(asset: FamilyAsset) {
   }
 }
 
+function handleCellDblClick(row: FamilyAsset) {
+  openEditDialog(row)
+}
+
 onMounted(async () => {
   if (!authStore.user?.familyId) return
   pageLoading.value = true
@@ -263,7 +313,6 @@ onMounted(async () => {
 
 <style scoped>
 .family-assets {
-  max-width: 960px;
   margin: 0 auto;
 }
 .page-header {

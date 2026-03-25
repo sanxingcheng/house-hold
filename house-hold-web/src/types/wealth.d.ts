@@ -14,6 +14,9 @@ export interface Account {
   accountType: AccountType
   balance: number
   currency: string
+  /** 是否立即可用现金，信用卡无此含义 */
+  availableImmediately?: boolean
+  remark?: string
   createdAt?: string
   updatedAt?: string
 }
@@ -23,6 +26,8 @@ export interface AccountCreateRequest {
   accountType: AccountType
   balance: number
   currency?: string
+  availableImmediately?: boolean
+  remark?: string
 }
 
 export interface AccountUpdateRequest {
@@ -30,6 +35,8 @@ export interface AccountUpdateRequest {
   accountType?: AccountType
   balance?: number
   currency?: string
+  availableImmediately?: boolean
+  remark?: string
 }
 
 export interface WealthSummary {
@@ -41,6 +48,8 @@ export interface WealthSummary {
   snapshotTime: string
   /** 家庭共有资产总额（仅 ownerType=FAMILY 时有值） */
   familyAssetTotal?: number
+  /** 可用现金（立即可用且非信用卡账户余额之和，单位分） */
+  availableCash?: number
 }
 
 export interface SnapshotPoint {
@@ -69,6 +78,11 @@ export interface FamilyAsset {
   loanTotal?: number
   /** 当前贷款余额（分），计入负债 */
   loanRemaining?: number
+  /** 商贷总额/余额、公积金总额/余额（分），房产可区分 */
+  commercialLoanTotal?: number
+  commercialLoanRemaining?: number
+  providentLoanTotal?: number
+  providentLoanRemaining?: number
   /** 是否只统计负债，不计入资产总额 */
   loanOnly?: boolean
 }
@@ -81,6 +95,10 @@ export interface FamilyAssetCreateRequest {
   remark?: string
   loanTotal?: number
   loanRemaining?: number
+  commercialLoanTotal?: number
+  commercialLoanRemaining?: number
+  providentLoanTotal?: number
+  providentLoanRemaining?: number
   loanOnly?: boolean
 }
 
@@ -92,5 +110,9 @@ export interface FamilyAssetUpdateRequest {
   remark?: string
   loanTotal?: number
   loanRemaining?: number
+  commercialLoanTotal?: number
+  commercialLoanRemaining?: number
+  providentLoanTotal?: number
+  providentLoanRemaining?: number
   loanOnly?: boolean
 }

@@ -1,11 +1,11 @@
 <template>
   <MainLayout>
     <div class="family" v-loading="pageLoading">
-      <h1 style="margin:0 0 24px">家庭</h1>
+      <h1 class="page-title">家庭</h1>
 
       <!-- 未加入家庭 -->
       <template v-if="!authStore.user?.familyId">
-        <el-card shadow="never" style="margin-bottom:16px">
+        <el-card shadow="never" class="family-card">
           <el-tabs v-model="tab">
             <el-tab-pane label="创建家庭" name="create">
               <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="80px" @submit.prevent="onCreate">
@@ -66,13 +66,13 @@
         </el-card>
 
         <!-- 收到的邀请 -->
-        <el-card v-if="familyStore.myInvitations.length > 0" shadow="never" style="margin-bottom:16px">
-          <template #header><span style="font-weight:600">收到的邀请</span></template>
-          <el-table :data="familyStore.myInvitations" stripe>
-            <el-table-column prop="familyName" label="家庭名称" />
-            <el-table-column prop="initiatedByUsername" label="邀请人" />
-            <el-table-column label="角色"><template #default="{ row }">{{ roleLabel(row.role) }}</template></el-table-column>
-            <el-table-column label="操作" width="160">
+        <el-card v-if="familyStore.myInvitations.length > 0" shadow="never" class="family-card">
+          <template #header><span class="card-title">收到的邀请</span></template>
+          <el-table :data="familyStore.myInvitations" stripe class="responsive-table" :border="true">
+            <el-table-column prop="familyName" label="家庭名称" min-width="120" resizable />
+            <el-table-column prop="initiatedByUsername" label="邀请人" min-width="100" resizable />
+            <el-table-column label="角色" min-width="80" resizable><template #default="{ row }">{{ roleLabel(row.role) }}</template></el-table-column>
+            <el-table-column label="操作" min-width="160" resizable>
               <template #default="{ row }">
                 <el-button size="small" type="primary" :loading="acceptingId === row.id" :disabled="rejectingId === row.id" @click="onAcceptInvite(row.id)">接受</el-button>
                 <el-button size="small" :loading="rejectingId === row.id" :disabled="acceptingId === row.id" @click="onRejectInvite(row.id)">拒绝</el-button>
@@ -82,15 +82,15 @@
         </el-card>
 
         <!-- 我的申请进度 -->
-        <el-card v-if="familyStore.myApplications.length > 0" shadow="never">
-          <template #header><span style="font-weight:600">我的申请</span></template>
-          <el-table :data="familyStore.myApplications" stripe>
-            <el-table-column prop="familyName" label="申请家庭" />
-            <el-table-column label="期望角色"><template #default="{ row }">{{ roleLabel(row.role) }}</template></el-table-column>
-            <el-table-column label="申请时间">
+        <el-card v-if="familyStore.myApplications.length > 0" shadow="never" class="family-card">
+          <template #header><span class="card-title">我的申请</span></template>
+          <el-table :data="familyStore.myApplications" stripe class="responsive-table" :border="true">
+            <el-table-column prop="familyName" label="申请家庭" min-width="120" resizable />
+            <el-table-column label="期望角色" min-width="90" resizable><template #default="{ row }">{{ roleLabel(row.role) }}</template></el-table-column>
+            <el-table-column label="申请时间" min-width="150" resizable>
               <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
             </el-table-column>
-            <el-table-column label="处理状态" width="120">
+            <el-table-column label="处理状态" min-width="100" resizable>
               <template #default="{ row }">
                 <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
               </template>
@@ -102,10 +102,10 @@
       <!-- 已加入家庭 -->
       <template v-else-if="familyStore.family">
         <!-- 家庭信息卡片 -->
-        <el-card shadow="never" style="margin-bottom:16px">
+        <el-card shadow="never" class="family-card">
           <template #header>
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <span style="font-weight:600">家庭信息</span>
+            <div class="card-header">
+              <span class="card-title">家庭信息</span>
               <el-button v-if="canManage && !editing" size="small" @click="startEdit">编辑</el-button>
             </div>
           </template>
@@ -142,22 +142,22 @@
         </el-card>
 
         <!-- 家庭成员 -->
-        <el-card shadow="never" style="margin-bottom:16px">
+        <el-card shadow="never" class="family-card">
           <template #header>
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <span style="font-weight:600">家庭成员</span>
-              <div v-if="canManage" style="display:flex;gap:8px">
+            <div class="card-header">
+              <span class="card-title">家庭成员</span>
+              <div v-if="canManage" class="header-actions">
                 <el-button size="small" type="primary" @click="showInviteDialog = true">邀请用户</el-button>
                 <el-button size="small" type="success" @click="showCreateMemberDialog = true">新建成员</el-button>
               </div>
             </div>
           </template>
-          <el-table :data="familyStore.members" stripe>
-            <el-table-column prop="username" label="用户名" />
-            <el-table-column prop="name" label="姓名">
+          <el-table :data="familyStore.members" stripe class="responsive-table" :border="true" @cell-dblclick="handleCellDblClick">
+            <el-table-column prop="username" label="用户名" min-width="100" resizable />
+            <el-table-column prop="name" label="姓名" min-width="80" resizable>
               <template #default="{ row }">{{ row.name || '—' }}</template>
             </el-table-column>
-            <el-table-column label="角色" width="200">
+            <el-table-column label="角色" min-width="180" resizable>
               <template #default="{ row }">
                 <template v-if="editingRoleUserId === row.userId">
                   <el-select v-model="editingRole" size="small" style="width:90px;margin-right:8px">
@@ -175,21 +175,21 @@
                 </template>
               </template>
             </el-table-column>
-            <el-table-column label="身份" width="120">
+            <el-table-column label="身份" min-width="100" resizable>
               <template #default="{ row }">
                 <el-tag v-if="row.isCreator" type="danger" size="small">户主</el-tag>
                 <el-tag v-else-if="row.isAdmin" type="warning" size="small">管理员</el-tag>
                 <el-tag v-else type="info" size="small">成员</el-tag>
               </template>
             </el-table-column>
-            <el-table-column v-if="canManage" label="操作" width="200">
+            <el-table-column v-if="canManage" label="操作" min-width="200" resizable>
               <template #default="{ row }">
                 <template v-if="row.userId !== authStore.user?.id && !row.isCreator">
                   <el-button v-if="familyStore.isCreator && !row.isAdmin" size="small" link type="primary" @click="onSetAdmin(row.userId, true)">设为管理员</el-button>
                   <el-button v-if="familyStore.isCreator && row.isAdmin" size="small" link type="warning" @click="onSetAdmin(row.userId, false)">取消管理员</el-button>
-                  <el-popconfirm :title="`确定移除「${row.username}」？`" @confirm="onRemoveMember(row.userId)">
+                  <el-popconfirm :title="`确定移除成员「${row.username}」？移除后其账户将不再计入家庭汇总。`" @confirm="onRemoveMember(row.userId)">
                     <template #reference>
-                      <el-button size="small" link type="danger">移除</el-button>
+                      <el-button size="small" link type="danger">移除成员</el-button>
                     </template>
                   </el-popconfirm>
                 </template>
@@ -199,23 +199,23 @@
         </el-card>
 
         <!-- 管理员/户主: 待审批请求 -->
-        <el-card v-if="canManage" shadow="never" style="margin-bottom:16px">
+        <el-card v-if="canManage" shadow="never" class="family-card">
           <template #header>
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <span style="font-weight:600">待审批请求</span>
+            <div class="card-header">
+              <span class="card-title">待审批请求</span>
               <el-tag v-if="familyStore.pendingRequests.length > 0" type="danger" size="small">{{ familyStore.pendingRequests.length }} 条待处理</el-tag>
             </div>
           </template>
           <template v-if="familyStore.pendingRequests.length > 0">
-            <el-table :data="familyStore.pendingRequests" stripe>
-              <el-table-column prop="username" label="用户名" />
-              <el-table-column label="类型">
+            <el-table :data="familyStore.pendingRequests" stripe class="responsive-table" :border="true">
+              <el-table-column prop="username" label="用户名" min-width="100" resizable />
+              <el-table-column label="类型" min-width="100" resizable>
                 <template #default="{ row }">{{ row.requestType === 'APPLY' ? '主动申请' : '管理员邀请' }}</template>
               </el-table-column>
-              <el-table-column label="期望角色">
+              <el-table-column label="期望角色" min-width="90" resizable>
                 <template #default="{ row }">{{ roleLabel(row.role) }}</template>
               </el-table-column>
-              <el-table-column label="操作" width="160">
+              <el-table-column label="操作" min-width="160" resizable>
                 <template #default="{ row }">
                   <el-button size="small" type="primary" @click="onApproveRequest(row.id)">通过</el-button>
                   <el-button size="small" @click="onRejectRequestAdmin(row.id)">拒绝</el-button>
@@ -398,6 +398,12 @@ function startEdit() {
 function startEditRole(m: { userId: string; role: string }) {
   editingRoleUserId.value = m.userId
   editingRole.value = m.role
+}
+
+function handleCellDblClick(row: { userId: string; role: string }) {
+  if (row.userId === authStore.user?.id) {
+    startEditRole(row)
+  }
 }
 
 async function loadFamily() {
@@ -601,7 +607,57 @@ watch(() => authStore.user?.familyId, loadFamily)
 
 <style scoped>
 .family {
-  max-width: 900px;
   margin: 0 auto;
+  width: 100%;
+}
+.page-title {
+  margin: 0 0 24px;
+  font-size: 1.5rem;
+}
+.family-card {
+  margin-bottom: 16px;
+}
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.card-title {
+  font-weight: 600;
+}
+.header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.responsive-table {
+  width: 100%;
+}
+
+/* 响应式样式 */
+@media screen and (max-width: 768px) {
+  .page-title {
+    font-size: 1.25rem;
+    margin-bottom: 20px;
+  }
+  .card-header {
+    gap: 8px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .page-title {
+    font-size: 1.1rem;
+    margin-bottom: 16px;
+  }
+  .family-card {
+    margin-bottom: 12px;
+  }
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 </style>

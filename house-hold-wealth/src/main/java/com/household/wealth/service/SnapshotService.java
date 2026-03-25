@@ -1,9 +1,11 @@
 package com.household.wealth.service;
 
 import com.household.wealth.cache.SummaryCacheService;
+import com.household.wealth.dto.response.AccountBalancePointResponse;
 import com.household.wealth.dto.response.SnapshotPointResponse;
 import com.household.wealth.entity.Account;
 import com.household.wealth.entity.FamilyAsset;
+import com.household.wealth.repository.AccountBalanceSnapshotRepository;
 import com.household.wealth.repository.AccountRepository;
 import com.household.wealth.repository.FamilyAssetRepository;
 import com.household.wealth.repository.WealthSnapshotRepository;
@@ -30,11 +32,13 @@ public class SnapshotService {
     private final AccountRepository accountRepository;
     private final FamilyAssetRepository familyAssetRepository;
     private final WealthSnapshotRepository snapshotRepository;
+    private final AccountBalanceSnapshotRepository accountBalanceSnapshotRepository;
 
     @Autowired(required = false)
     private SummaryCacheService summaryCacheService;
 
     private static final SnowflakeIdGenerator SNAPSHOT_ID_GEN = new SnowflakeIdGenerator(2, 2);
+    private static final SnowflakeIdGenerator ACCOUNT_SNAPSHOT_ID_GEN = new SnowflakeIdGenerator(2, 5);
     private static final String CREDIT_CARD = "CREDIT_CARD";
     private static final String OWNER_TYPE_USER = "USER";
     private static final String OWNER_TYPE_FAMILY = "FAMILY";
@@ -55,6 +59,11 @@ public class SnapshotService {
         snapshotRepository.upsertSnapshot(
                 SNAPSHOT_ID_GEN.nextId(), OWNER_TYPE_USER, userId,
                 totalAssets, totalLiabilities, netWorth, today);
+
+        for (Account acc : userAccounts) {
+            accountBalanceSnapshotRepository.upsertSnapshot(
+                    ACCOUNT_SNAPSHOT_ID_GEN.nextId(), acc.getId(), acc.getBalance(), today);
+        }
 
         if (summaryCacheService != null) {
             summaryCacheService.invalidateUser(userId);
@@ -106,6 +115,14 @@ public class SnapshotService {
                 .findByOwnerTypeAndOwnerIdAndSnapshotDateBetweenOrderBySnapshotDateAsc(OWNER_TYPE_FAMILY, familyId, from, to)
                 .stream()
                 .map(s -> new SnapshotPointResponse(s.getSnapshotDate().toString(), s.getNetWorth()))
+                .toList();
+    }
+
+    public List<AccountBalancePointResponse> getAccountBalanceHistory(Long accountId, LocalDate from, LocalDate to) {
+        return accountBalanceSnapshotRepository
+                .findByAccountIdAndSnapshotDateBetweenOrderBySnapshotDateAsc(accountId, from, to)
+                .stream()
+                .map(s -> new AccountBalancePointResponse(s.getSnapshotDate().toString(), s.getBalance()))
                 .toList();
     }
 }

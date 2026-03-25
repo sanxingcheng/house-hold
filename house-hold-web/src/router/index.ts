@@ -42,6 +42,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/family/overview',
+      name: 'MyFamily',
+      component: () => import('@/views/MyFamily.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/family/assets',
       name: 'FamilyAssets',
       component: () => import('@/views/FamilyAssets.vue'),
@@ -63,6 +69,12 @@ const router = createRouter({
       path: '/wealth/history',
       name: 'WealthHistory',
       component: () => import('@/views/WealthHistory.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/family/operation-log',
+      name: 'OperationLog',
+      component: () => import('@/views/OperationLog.vue'),
       meta: { requiresAuth: true },
     },
   ],
