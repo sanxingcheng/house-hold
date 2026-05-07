@@ -9,12 +9,14 @@
       <el-card class="guest-card" shadow="always">
         <slot />
       </el-card>
+      <SiteFooter />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { HomeFilled } from '@element-plus/icons-vue'
+import SiteFooter from '@/layouts/SiteFooter.vue'
 </script>
 
 <style scoped>
@@ -31,6 +33,8 @@ import { HomeFilled } from '@element-plus/icons-vue'
   align-items: center;
   gap: 1.5rem;
   padding: 2rem;
+  --site-footer-color: rgba(255, 255, 255, 0.82);
+  --site-footer-hover-color: #fff;
 }
 .brand {
   text-align: center;
@@ -49,5 +53,17 @@ import { HomeFilled } from '@element-plus/icons-vue'
 .guest-card {
   width: 400px;
   max-width: 90vw;
+}
+
+@media screen and (max-width: 480px) {
+  .guest-layout {
+    align-items: flex-start;
+  }
+  .guest-container {
+    min-height: 100vh;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1.25rem 1rem;
+  }
 }
 </style>

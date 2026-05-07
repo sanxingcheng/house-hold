@@ -70,6 +70,8 @@
       <slot />
     </el-main>
 
+    <SiteFooter />
+
     <!-- 移动端抽屉菜单 -->
     <el-drawer
       v-model="mobileMenuVisible"
@@ -119,6 +121,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
+import SiteFooter from '@/layouts/SiteFooter.vue'
 import {
   HomeFilled, DataLine, User, UserFilled,
   House, Wallet, ArrowDown, SwitchButton, Menu
@@ -144,6 +147,8 @@ function handleCommand(command: string) {
 <style scoped>
 .main-layout {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 .header {
   display: flex;
@@ -198,6 +203,7 @@ function handleCommand(command: string) {
   color: #606266;
 }
 .main-content {
+  flex: 1;
   background: #f5f7fa;
   padding: 20px;
 }

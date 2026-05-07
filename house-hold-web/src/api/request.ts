@@ -11,6 +11,9 @@ export const request = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+// Track if we are already processing a 401 to avoid infinite redirect loops
+let isHandling401 = false
+
 request.interceptors.request.use((config) => {
   const authStore = useAuthStore()
   const token = authStore.token
@@ -23,10 +26,21 @@ request.interceptors.request.use((config) => {
 request.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
-      const authStore = useAuthStore()
-      authStore.logout()
-      router.push('/login')
+    if (err.response?.status === 401 && !isHandling401) {
+      isHandling401 = true
+      try {
+        const authStore = useAuthStore()
+        // Clear local state without calling /auth/logout (which would trigger another 401)
+        authStore.token = null
+        authStore.user = null
+        try {
+          localStorage.removeItem('household_token')
+          localStorage.removeItem('household_user')
+        } catch (_) {}
+        router.push('/login')
+      } finally {
+        isHandling401 = false
+      }
     }
     const data = err.response?.data as ApiErrorBody | undefined
     const message = data?.message || err.message || '请求失败'

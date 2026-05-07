@@ -117,9 +117,13 @@
                 </el-table-column>
                 <el-table-column label="贷款余额" min-width="85" align="right">
                   <template #default="{ row }">
-                    <span v-if="row.loanRemaining && row.loanRemaining > 0" class="loan-cell">
-                      ¥ {{ formatMoney(row.loanRemaining) }}
-                    </span>
+                    <div v-if="displayLoanRemaining(row) > 0" class="loan-cell">
+                      <div class="loan-total">¥ {{ formatMoney(displayLoanRemaining(row)) }}</div>
+                      <template v-if="hasSeparatedHousingLoan(row)">
+                        <div class="loan-detail">商贷 ¥ {{ formatMoney(row.commercialLoanRemaining ?? 0) }}</div>
+                        <div class="loan-detail">公积金 ¥ {{ formatMoney(row.providentLoanRemaining ?? 0) }}</div>
+                      </template>
+                    </div>
                     <span v-else>—</span>
                   </template>
                 </el-table-column>
@@ -139,7 +143,7 @@ import MainLayout from '@/layouts/MainLayout.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useWealthStore } from '@/stores/wealth'
 import { useFamilyStore } from '@/stores/family'
-import type { Account } from '@/types/wealth'
+import type { Account, FamilyAsset } from '@/types/wealth'
 import { Wallet, House } from '@element-plus/icons-vue'
 
 const authStore = useAuthStore()
@@ -228,6 +232,21 @@ const displayMemberRows = computed(() => {
 
 function formatMoney(fen: number) {
   return (fen / 100).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function separatedHousingLoanRemaining(asset: FamilyAsset) {
+  return (asset.commercialLoanRemaining ?? 0) + (asset.providentLoanRemaining ?? 0)
+}
+
+function hasSeparatedHousingLoan(asset: FamilyAsset) {
+  return asset.assetType === 'REAL_ESTATE' && separatedHousingLoanRemaining(asset) > 0
+}
+
+function displayLoanRemaining(asset: FamilyAsset) {
+  if (hasSeparatedHousingLoan(asset)) {
+    return separatedHousingLoanRemaining(asset)
+  }
+  return asset.loanRemaining ?? 0
 }
 
 function statStyle(net: number) {
@@ -329,6 +348,19 @@ onMounted(async () => {
 
 .loan-cell {
   color: #f56c6c;
+}
+
+.loan-total {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.loan-detail {
+  margin-top: 2px;
+  color: #909399;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  white-space: nowrap;
 }
 
 .card-header {

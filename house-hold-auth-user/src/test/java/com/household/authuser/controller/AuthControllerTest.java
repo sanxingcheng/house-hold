@@ -4,13 +4,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.household.authuser.dto.request.LoginRequest;
 import com.household.authuser.dto.request.RegisterRequest;
 import com.household.authuser.dto.response.LoginResponse;
+import com.household.authuser.dto.response.PasswordPublicKeyResponse;
 import com.household.authuser.dto.response.RegisterResponse;
 import com.household.authuser.service.AuthService;
+import com.household.authuser.service.PasswordCryptoService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -35,6 +38,9 @@ class AuthControllerTest {
     @Mock
     private AuthService authService;
 
+    @Mock
+    private PasswordCryptoService passwordCryptoService;
+
     @InjectMocks
     private AuthController authController;
 
@@ -54,6 +60,25 @@ class AuthControllerTest {
             mockMvc.perform(get("/auth/health"))
                     .andExpect(status().isOk())
                     .andExpect(content().string("OK"));
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /auth/password-public-key")
+    class PasswordPublicKey {
+
+        /** 验证密码传输加密公钥端点返回算法和公钥信息 */
+        @Test
+        @DisplayName("返回 RSA-OAEP-256 公钥")
+        void passwordPublicKey_returnsPublicKey() throws Exception {
+            when(passwordCryptoService.getPublicKey())
+                    .thenReturn(new PasswordPublicKeyResponse("key-1", "RSA-OAEP-256", "base64-public-key"));
+
+            mockMvc.perform(get("/auth/password-public-key"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.keyId").value("key-1"))
+                    .andExpect(jsonPath("$.algorithm").value("RSA-OAEP-256"))
+                    .andExpect(jsonPath("$.publicKey").value("base64-public-key"));
         }
     }
 
@@ -85,6 +110,34 @@ class AuthControllerTest {
                     .andExpect(jsonPath("$.username").value("user1"))
                     .andExpect(jsonPath("$.birthday").value("1990-01-01"));
         }
+
+        /** 验证注册请求携带密文密码时，Controller 先解密再调用认证服务 */
+        @Test
+        @DisplayName("携带密文密码时先解密再注册")
+        void whenEncryptedPassword_thenDecryptsBeforeRegister() throws Exception {
+            RegisterRequest req = new RegisterRequest();
+            req.setUsername("user1");
+            req.setName("测试");
+            req.setGender("MALE");
+            req.setEncryptedPassword("cipher-text");
+            req.setBirthday("1990-01-01");
+            RegisterResponse res = new RegisterResponse(
+                    "1", "user1", "测试",
+                    "MALE", "1990-01-01",
+                    null, null);
+            when(passwordCryptoService.decryptPassword("cipher-text")).thenReturn("pass123");
+            when(authService.register(any(RegisterRequest.class))).thenReturn(res);
+
+            mockMvc.perform(post("/auth/register")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(req)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value("1"));
+
+            ArgumentCaptor<RegisterRequest> requestCaptor = ArgumentCaptor.forClass(RegisterRequest.class);
+            verify(authService).register(requestCaptor.capture());
+            org.assertj.core.api.Assertions.assertThat(requestCaptor.getValue().getPassword()).isEqualTo("pass123");
+        }
     }
 
     @Nested
@@ -109,6 +162,29 @@ class AuthControllerTest {
                     .andExpect(jsonPath("$.token").value("jwt-token"))
                     .andExpect(jsonPath("$.user.username").value("u1"))
                     .andExpect(jsonPath("$.user.id").value("1"));
+        }
+
+        /** 验证登录请求携带密文密码时，Controller 先解密再调用认证服务 */
+        @Test
+        @DisplayName("携带密文密码时先解密再登录")
+        void whenEncryptedPassword_thenDecryptsBeforeLogin() throws Exception {
+            LoginRequest req = new LoginRequest();
+            req.setUsername("u1");
+            req.setEncryptedPassword("cipher-text");
+            LoginResponse.UserInfo userInfo = new LoginResponse.UserInfo("1", "u1", "1990-01-01", null);
+            LoginResponse res = new LoginResponse("jwt-token", userInfo);
+            when(passwordCryptoService.decryptPassword("cipher-text")).thenReturn("pass");
+            when(authService.login(any(LoginRequest.class))).thenReturn(res);
+
+            mockMvc.perform(post("/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(req)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.token").value("jwt-token"));
+
+            ArgumentCaptor<LoginRequest> requestCaptor = ArgumentCaptor.forClass(LoginRequest.class);
+            verify(authService).login(requestCaptor.capture());
+            org.assertj.core.api.Assertions.assertThat(requestCaptor.getValue().getPassword()).isEqualTo("pass");
         }
     }
 

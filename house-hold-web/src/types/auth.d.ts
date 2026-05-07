@@ -3,6 +3,11 @@ export interface LoginRequest {
   password: string
 }
 
+export interface EncryptedLoginRequest {
+  username: string
+  encryptedPassword: string
+}
+
 export interface LoginResponse {
   token: string
   user: {
@@ -22,6 +27,16 @@ export interface RegisterRequest {
   phone?: string
 }
 
+export interface EncryptedRegisterRequest {
+  username: string
+  name: string
+  gender: string
+  encryptedPassword: string
+  birthday: string
+  email?: string
+  phone?: string
+}
+
 export interface RegisterResponse {
   id: string
   username: string
@@ -35,4 +50,10 @@ export interface RegisterResponse {
 export interface ApiErrorBody {
   code: string
   message: string
+}
+
+export interface PasswordPublicKeyResponse {
+  keyId: string
+  algorithm: 'RSA-OAEP-256'
+  publicKey: string
 }

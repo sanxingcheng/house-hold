@@ -130,12 +130,32 @@ class GlobalExceptionHandlerTest {
         org.springframework.validation.FieldError fieldError =
                 new org.springframework.validation.FieldError("req", "username", "用户名不能为空");
         when(bindingResult.getFieldErrors()).thenReturn(java.util.List.of(fieldError));
+        when(bindingResult.getGlobalErrors()).thenReturn(java.util.List.of());
 
         ResponseEntity<Map<String, String>> res = handler.handleValidation(e);
 
         assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(res.getBody()).containsEntry("code", "VALIDATION_ERROR")
                 .containsEntry("message", "用户名不能为空");
+    }
+
+    /** 验证参数校验异常没有字段错误但有对象级错误时，返回对象级错误信息 */
+    @Test
+    @DisplayName("对象级校验错误返回具体提示")
+    void handleValidation_globalError_returnsGlobalMessage() {
+        MethodArgumentNotValidException e = mock(MethodArgumentNotValidException.class);
+        BindingResult bindingResult = mock(BindingResult.class);
+        when(e.getBindingResult()).thenReturn(bindingResult);
+        when(bindingResult.getFieldErrors()).thenReturn(java.util.List.of());
+        when(bindingResult.getGlobalErrors()).thenReturn(java.util.List.of(
+                new org.springframework.validation.ObjectError("req", "密码不能为空")
+        ));
+
+        ResponseEntity<Map<String, String>> res = handler.handleValidation(e);
+
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(res.getBody()).containsEntry("code", "VALIDATION_ERROR")
+                .containsEntry("message", "密码不能为空");
     }
 
     /** 验证 MethodArgumentNotValidException 无字段错误时返回默认提示 */
@@ -146,6 +166,7 @@ class GlobalExceptionHandlerTest {
         BindingResult bindingResult = mock(BindingResult.class);
         when(e.getBindingResult()).thenReturn(bindingResult);
         when(bindingResult.getFieldErrors()).thenReturn(java.util.List.of());
+        when(bindingResult.getGlobalErrors()).thenReturn(java.util.List.of());
 
         ResponseEntity<Map<String, String>> res = handler.handleValidation(e);
 

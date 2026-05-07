@@ -7,6 +7,7 @@ import com.household.common.exception.NotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
+import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -60,7 +61,12 @@ public class GlobalExceptionHandler {
         FieldError first = e.getBindingResult().getFieldErrors().isEmpty()
                 ? null
                 : e.getBindingResult().getFieldErrors().get(0);
-        String message = first != null ? first.getDefaultMessage() : "参数不合法";
+        ObjectError firstGlobal = e.getBindingResult().getGlobalErrors().isEmpty()
+                ? null
+                : e.getBindingResult().getGlobalErrors().get(0);
+        String message = first != null
+                ? first.getDefaultMessage()
+                : firstGlobal != null ? firstGlobal.getDefaultMessage() : "参数不合法";
         return ResponseEntity.badRequest().body(error("VALIDATION_ERROR", message));
     }
 }

@@ -41,7 +41,12 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
     private RedissonClient redissonClient;
 
     private static final String SESSION_KEY_PREFIX = "household:session:";
-    private static final List<String> SKIP_PATHS = List.of("/auth/login", "/auth/register", "/auth/health");
+    private static final List<String> SKIP_PATHS = List.of(
+            "/auth/login",
+            "/auth/register",
+            "/auth/password-public-key",
+            "/auth/health"
+    );
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {

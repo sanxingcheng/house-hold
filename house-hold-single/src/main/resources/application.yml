@@ -1,0 +1,33 @@
+# Default configuration for the monolithic JAR
+# Override by setting SPRING_PROFILES_ACTIVE=prod
+
+server:
+  port: 8080
+
+spring:
+  application:
+    name: house-hold-single
+  # Disable Nacos
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+      config:
+        enabled: false
+    service-registry:
+      auto-registration:
+        enabled: false
+  # Exclude auto-configurations that would fail without Nacos/Kafka
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+      - com.alibaba.cloud.nacos.NacosDiscoveryAutoConfiguration
+      - com.alibaba.cloud.nacos.NacosConfigAutoConfiguration
+      - com.alibaba.cloud.nacos.discovery.NacosDiscoveryClientAutoConfiguration
+  config:
+    import: "optional:file:./config/extra.yml"
+
+app:
+  jwt:
+    secret: house-hold-jwt-secret-key-change-in-production-min-256-bits
+    expiration-ms: 86400000

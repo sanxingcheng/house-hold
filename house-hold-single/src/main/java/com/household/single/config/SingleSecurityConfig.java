@@ -1,0 +1,60 @@
+package com.household.single.config;
+
+import com.household.single.filter.JwtAuthFilter;
+import org.springframework.boot.autoconfigure.AutoConfigureBefore;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+/**
+ * Unified security configuration for the monolithic JAR.
+ * Merges rules from auth-user and wealth, plus JWT filter.
+ */
+@Configuration
+@EnableWebSecurity
+public class SingleSecurityConfig {
+
+    private final JwtAuthFilter jwtAuthFilter;
+
+    public SingleSecurityConfig(JwtAuthFilter jwtAuthFilter) {
+        this.jwtAuthFilter = jwtAuthFilter;
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(a -> a
+                        .requestMatchers(
+                                "/auth/**",
+                                "/user/**",
+                                "/family/**",
+                                "/wealth/**",
+                                "/actuator/health",
+                                "/actuator/info",
+                                "/error",
+                                "/favicon.ico",
+                                "/js/**",
+                                "/css/**",
+                                "/fonts/**",
+                                "/img/**",
+                                "/assets/**"
+                        ).permitAll()
+                        .anyRequest().permitAll()
+                )
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+        return http.build();
+    }
+}
