@@ -82,6 +82,10 @@ const router = createRouter({
 
 router.beforeEach((to, _from, next) => {
   const auth = useAuthStore()
+  // 确保首次进入时从 localStorage 恢复登录态
+  if (!auth.isLoggedIn) {
+    auth.loadFromStorage()
+  }
   if (to.meta.requiresAuth && !auth.isLoggedIn) {
     next({ path: '/login', query: { redirect: to.fullPath } })
     return

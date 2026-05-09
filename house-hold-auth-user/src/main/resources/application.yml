@@ -8,8 +8,8 @@ spring:
     import: optional:nacos:${spring.application.name}.yaml
   datasource:
     url: jdbc:mysql://127.0.0.1:3306/household_auth?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-    username: root
-    password: Admin@123
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:changeme}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
@@ -54,7 +54,7 @@ management:
 
 app:
   jwt:
-    secret: house-hold-jwt-secret-key-change-in-production-min-256-bits
+    secret: ${JWT_SECRET:changeme}
     expiration-ms: 86400000
 
 # 迭代二：缓存（可选，不配 Redis 则仅用 Caffeine）

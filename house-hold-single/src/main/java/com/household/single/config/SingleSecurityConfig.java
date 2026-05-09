@@ -1,7 +1,5 @@
 package com.household.single.config;
 
-import com.household.single.filter.JwtAuthFilter;
-import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -10,21 +8,16 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
  * Unified security configuration for the monolithic JAR.
- * Merges rules from auth-user and wealth, plus JWT filter.
+ * Merges rules from auth-user and wealth.
+ * JWT authentication is handled by {@link com.household.single.filter.JwtAuthFilter}
+ * which runs as a servlet filter (registered via @Component).
  */
 @Configuration
 @EnableWebSecurity
 public class SingleSecurityConfig {
-
-    private final JwtAuthFilter jwtAuthFilter;
-
-    public SingleSecurityConfig(JwtAuthFilter jwtAuthFilter) {
-        this.jwtAuthFilter = jwtAuthFilter;
-    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -53,8 +46,7 @@ public class SingleSecurityConfig {
                                 "/assets/**"
                         ).permitAll()
                         .anyRequest().permitAll()
-                )
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                );
         return http.build();
     }
 }

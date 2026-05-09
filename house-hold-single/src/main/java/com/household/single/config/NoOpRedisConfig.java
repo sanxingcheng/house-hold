@@ -2,6 +2,7 @@ package com.household.single.config;
 
 import org.redisson.api.RBucket;
 import org.redisson.api.RLock;
+import org.redisson.api.RSet;
 import org.redisson.api.RedissonClient;
 import org.redisson.config.Config;
 import org.springframework.context.annotation.Bean;
@@ -11,7 +12,6 @@ import org.springframework.context.annotation.Primary;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Provides a no-op RedissonClient via dynamic proxy when Redis is not available.
@@ -59,6 +59,24 @@ public class NoOpRedisConfig {
                             if ("remainTimeToLive".equals(bName)) return 0L;
                             if ("remainTimeToLiveAsync".equals(bName)) return null;
                             if ("clearExpire".equals(bName) || "clearExpireAsync".equals(bName)) return false;
+                            return null;
+                        }
+                );
+            }
+            if ("getSet".equals(name)) {
+                return Proxy.newProxyInstance(
+                        RSet.class.getClassLoader(),
+                        new Class<?>[]{RSet.class},
+                        (sProxy, sMethod, sArgs) -> {
+                            String sName = sMethod.getName();
+                            if ("add".equals(sName) || "remove".equals(sName)) return true;
+                            if ("contains".equals(sName) || "containsAll".equals(sName)
+                                    || "retainAll".equals(sName)) return false;
+                            if ("size".equals(sName)) return 0;
+                            if ("isEmpty".equals(sName)) return true;
+                            if ("delete".equals(sName) || "isExists".equals(sName)
+                                    || "clear".equals(sName)) return false;
+                            if ("getName".equals(sName)) return "";
                             return null;
                         }
                 );

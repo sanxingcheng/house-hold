@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -15,6 +16,7 @@ public interface WealthSnapshotRepository extends JpaRepository<WealthSnapshot, 
             String ownerType, Long ownerId, LocalDate from, LocalDate to);
 
     @Modifying
+    @Transactional
     @Query(value = """
             INSERT INTO wealth_snapshot (id, owner_type, owner_id, total_assets, total_liabilities, net_worth, snapshot_date)
             VALUES (:id, :ownerType, :ownerId, :totalAssets, :totalLiabilities, :netWorth, :snapshotDate)

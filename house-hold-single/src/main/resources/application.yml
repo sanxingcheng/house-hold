@@ -21,6 +21,9 @@ spring:
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+      - org.redisson.spring.starter.RedissonAutoConfigurationV2
       - com.alibaba.cloud.nacos.NacosDiscoveryAutoConfiguration
       - com.alibaba.cloud.nacos.NacosConfigAutoConfiguration
       - com.alibaba.cloud.nacos.discovery.NacosDiscoveryClientAutoConfiguration
@@ -29,5 +32,5 @@ spring:
 
 app:
   jwt:
-    secret: house-hold-jwt-secret-key-change-in-production-min-256-bits
+    secret: ${JWT_SECRET:changeme}
     expiration-ms: 86400000

@@ -5,7 +5,8 @@ export interface LoginRequest {
 
 export interface EncryptedLoginRequest {
   username: string
-  encryptedPassword: string
+  encryptedPassword?: string
+  password?: string
 }
 
 export interface LoginResponse {
@@ -31,7 +32,8 @@ export interface EncryptedRegisterRequest {
   username: string
   name: string
   gender: string
-  encryptedPassword: string
+  encryptedPassword?: string
+  password?: string
   birthday: string
   email?: string
   phone?: string

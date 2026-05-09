@@ -8,8 +8,8 @@ dataSources:
     dataSourceClassName: com.zaxxer.hikari.HikariDataSource
     driverClassName: com.mysql.cj.jdbc.Driver
     jdbcUrl: jdbc:mysql://127.0.0.1:3306/household_wealth?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-    username: root
-    password: Admin@123
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:changeme}
 
 rules:
   - !SHARDING

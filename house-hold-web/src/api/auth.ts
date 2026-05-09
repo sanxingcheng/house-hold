@@ -24,30 +24,44 @@ export function logout() {
 }
 
 async function encryptLoginRequest(data: LoginRequest): Promise<EncryptedLoginRequest> {
-  return {
-    username: data.username,
-    encryptedPassword: await encryptPassword(data.password),
-  }
+  const encrypted = await encryptPassword(data.password)
+  return encrypted != null
+    ? { username: data.username, encryptedPassword: encrypted }
+    : { username: data.username, password: data.password }
 }
 
 async function encryptRegisterRequest(data: RegisterRequest): Promise<EncryptedRegisterRequest> {
-  return {
-    username: data.username,
-    name: data.name,
-    gender: data.gender,
-    encryptedPassword: await encryptPassword(data.password),
-    birthday: data.birthday,
-    email: data.email,
-    phone: data.phone,
-  }
+  const encrypted = await encryptPassword(data.password)
+  return encrypted != null
+    ? {
+        username: data.username,
+        name: data.name,
+        gender: data.gender,
+        encryptedPassword: encrypted,
+        birthday: data.birthday,
+        email: data.email,
+        phone: data.phone,
+      }
+    : {
+        username: data.username,
+        name: data.name,
+        gender: data.gender,
+        password: data.password,
+        birthday: data.birthday,
+        email: data.email,
+        phone: data.phone,
+      }
 }
 
 /**
  * 使用服务端公钥加密密码，避免登录/注册请求体中出现明文密码。
+ * 当浏览器环境不支持 crypto.subtle（如非 HTTPS 非 localhost 的 HTTP 页面）时，
+ * 返回 null，由调用方回退为发送明文密码。
  */
-async function encryptPassword(password: string): Promise<string> {
+async function encryptPassword(password: string): Promise<string | null> {
   if (!globalThis.crypto?.subtle) {
-    throw new Error('当前浏览器不支持安全密码加密，请更换现代浏览器后重试')
+    console.warn('当前环境不支持 Web Crypto API，密码将以明文传输')
+    return null
   }
   const publicKey = await getPasswordPublicKey()
   const ciphertext = await crypto.subtle.encrypt(
